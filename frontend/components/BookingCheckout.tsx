@@ -6,7 +6,7 @@ import { Edit, X, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { rentalsService } from "../services/rentalsService";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface BookingCheckoutProps {
   instrument: {

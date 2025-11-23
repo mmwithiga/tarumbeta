@@ -19,7 +19,7 @@ import {
   TrendingUp,
   Guitar
 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
 
 interface OwnerDashboardProps {

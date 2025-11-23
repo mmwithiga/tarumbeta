@@ -6,7 +6,7 @@ import { Separator } from "./ui/separator";
 import { Music, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface SignInProps {
   onNavigate: (view: string) => void;

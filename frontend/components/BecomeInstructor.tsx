@@ -10,7 +10,7 @@ import { Upload, CheckCircle2, Award, Music2, Lock } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface BecomeInstructorProps {
   onNavigate: (view: string) => void;

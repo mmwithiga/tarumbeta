@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { User, Mail, MapPin, Phone, Save, ArrowLeft } from "lucide-react";
 
 interface ProfileSettingsProps {

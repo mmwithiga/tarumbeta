@@ -7,7 +7,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Music, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface SignUpProps {
   onNavigate: (view: string) => void;

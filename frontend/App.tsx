@@ -20,7 +20,7 @@ import { DecisionModal } from "./components/DecisionModal";
 import { ScheduleLesson } from "./components/ScheduleLesson";
 import { SupabaseDiagnostic } from "./components/SupabaseDiagnostic";
 import { Toaster } from "./components/ui/sonner";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import type { Instrument } from "./services/instrumentsService";
 import type { Instructor } from "./services/instructorsService";
 

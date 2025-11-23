@@ -5,7 +5,7 @@ import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
 import { Star } from "lucide-react";
 import { reviewsService } from "../services/reviewsService";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface ReviewModalProps {
   isOpen: boolean;

@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify
 from app.utils.supabase_client import supabase
 from app.utils.auth_helpers import require_auth, get_current_user_id
 
-bp = Blueprint('instruments', __name__)
+bp = Blueprint('instructors', __name__)
 
 @bp.route('', methods=['GET'])
 def get_instruments():

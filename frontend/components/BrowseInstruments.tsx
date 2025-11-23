@@ -3,7 +3,7 @@ import { InstrumentCard } from "./InstrumentCard";
 import { Skeleton } from "./ui/skeleton";
 import { useState, useEffect } from "react";
 import { instrumentsService, type Instrument } from "../services/instrumentsService";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface BrowseInstrumentsProps {
   onRent: (instrument: Instrument) => void;

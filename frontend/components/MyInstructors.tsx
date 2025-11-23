@@ -7,7 +7,7 @@ import { Star, MessageSquare, Calendar, Award, CheckCircle, Clock } from "lucide
 import { supabase } from "../lib/supabase";
 import { reviewsService } from "../services/reviewsService";
 import { ReviewModal } from "./ReviewModal";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { format } from "date-fns";
 
 interface LessonWithInstructor {

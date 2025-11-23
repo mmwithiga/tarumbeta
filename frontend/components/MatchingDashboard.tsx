@@ -7,7 +7,7 @@ import { Skeleton } from "./ui/skeleton";
 import { Search, Music, Sparkles, Brain, Target, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 import { instructorsService, type Instructor } from "../services/instructorsService";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { ReviewsList } from "./ReviewsList";
 import { motion, AnimatePresence } from "motion/react";
 

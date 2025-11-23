@@ -6,7 +6,7 @@ import { Badge } from "./ui/badge";
 import { Skeleton } from "./ui/skeleton";
 import { Star, MessageSquare, User } from "lucide-react";
 import { reviewsService, Review } from "../services/reviewsService";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { format } from "date-fns";
 
 interface ReviewsListProps {
