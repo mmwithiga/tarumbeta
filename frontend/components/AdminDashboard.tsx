@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import type { View } from '../types';
 import { supabase } from '../lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Separator } from './ui/separator';
-import { 
-  Users, 
-  Guitar, 
-  BookOpen, 
+
+import {
+  Users,
+  Guitar,
   DollarSign,
   TrendingUp,
   Activity,
@@ -24,7 +24,7 @@ import {
 import { toast } from 'sonner';
 
 interface AdminDashboardProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 interface PlatformStats {
@@ -141,7 +141,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       const { data: rentalsData } = await supabase
         .from('rentals')
         .select('total_price');
-      
+
       const totalRevenue = rentalsData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
 
       // Get pending instructor applications
@@ -191,10 +191,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 
   const loadInstrumentListings = async () => {
     try {
-      // Simplified query without join to avoid timeout
+      // Include join to users table to get owner information
       const { data, error } = await supabase
         .from('instrument_listings')
-        .select('*')
+        .select('*, users!instrument_listings_owner_id_fkey(full_name, email)')
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -210,7 +210,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const handleApproveInstructor = async (applicationId: string, userId: string) => {
     try {
       console.log("🎯 Approving instructor application:", applicationId);
-      
+
       // Get application details first
       const application = instructorApplications.find(app => app.id === applicationId);
       if (!application) {
@@ -246,8 +246,12 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           bio: application.bio,
           experience_years: application.experience_years,
           hourly_rate: application.hourly_rate,
-          genre: application.genre,
-          certifications: application.certifications,
+          // genre is TEXT - store as comma-separated string
+          genre: application.genre || null,
+          // certifications is TEXT[] - must be array
+          certifications: application.certifications
+            ? application.certifications.split(',').map(c => c.trim())
+            : [],
           rating: 5.0,
           total_students: 0,
           is_verified: true,
@@ -312,7 +316,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const handleApproveInstrument = async (instrumentId: string) => {
     try {
       console.log("🎸 Approving instrument:", instrumentId);
-      
+
       const { error } = await supabase
         .from('instrument_listings')
         .update({ is_available: true })
@@ -324,7 +328,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       }
 
       console.log("✅ Instrument approved and made available");
-      
+
       toast.success('Instrument approved!', {
         description: 'The instrument is now available for rent.',
       });
@@ -342,7 +346,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const handleRejectInstrument = async (instrumentId: string) => {
     try {
       console.log("❌ Rejecting instrument:", instrumentId);
-      
+
       // Delete the instrument listing
       const { error } = await supabase
         .from('instrument_listings')
@@ -355,7 +359,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       }
 
       console.log("✅ Instrument rejected and removed");
-      
+
       toast.success('Instrument rejected', {
         description: 'The listing has been removed from the platform.',
       });
@@ -534,9 +538,16 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Pending Approvals</span>
+                    <span className="text-sm text-muted-foreground">Pending Instructors</span>
                     <Badge variant={stats.pendingInstructorApps > 0 ? "destructive" : "secondary"}>
                       {stats.pendingInstructorApps}
+                    </Badge>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Pending Instruments</span>
+                    <Badge variant={stats.pendingInstrumentListings > 0 ? "destructive" : "secondary"}>
+                      {stats.pendingInstrumentListings}
                     </Badge>
                   </div>
                 </CardContent>
@@ -552,8 +563,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   <CardDescription>Manage your platform</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button 
-                    className="w-full justify-start" 
+                  <Button
+                    className="w-full justify-start"
                     variant="outline"
                     onClick={() => setSelectedTab('instructors')}
                   >
@@ -565,13 +576,18 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                       </Badge>
                     )}
                   </Button>
-                  <Button 
-                    className="w-full justify-start" 
+                  <Button
+                    className="w-full justify-start"
                     variant="outline"
                     onClick={() => setSelectedTab('instruments')}
                   >
                     <Guitar className="mr-2 h-4 w-4" />
                     Manage Instrument Listings
+                    {stats.pendingInstrumentListings > 0 && (
+                      <Badge variant="destructive" className="ml-auto">
+                        {stats.pendingInstrumentListings}
+                      </Badge>
+                    )}
                   </Button>
                   <Button className="w-full justify-start" variant="outline">
                     <Users className="mr-2 h-4 w-4" />
@@ -613,7 +629,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                           </div>
                           <Badge>{app.instrument}</Badge>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
                             <span className="text-muted-foreground">Experience:</span>

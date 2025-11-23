@@ -39,7 +39,7 @@ def create_rental():
             'start_date': data['start_date'],
             'end_date': data['end_date'],
             'total_price': data['total_price'],
-            'with_instructor': data.get('with_instructor', False),
+            # 'with_instructor': data.get('with_instructor', False), # FIXME: Column missing in DB
             'status': 'pending'
         }
         
@@ -61,7 +61,7 @@ def get_my_rentals():
         user_id = get_current_user_id()
         
         response = supabase.table('rentals').select(
-            '*, instrument_listings(*), users!rentals_renter_id_fkey(full_name, email)'
+            '*, instrument_listings(*, users:owner_id(full_name, email, avatar_url)), users!rentals_renter_id_fkey(full_name, email)'
         ).eq('renter_id', user_id).order('created_at', desc=True).execute()
         
         return jsonify(response.data), 200

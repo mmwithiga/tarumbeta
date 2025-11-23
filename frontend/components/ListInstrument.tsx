@@ -6,18 +6,22 @@ import { Label } from "./ui/label";
 import { Card } from "./ui/card";
 import { Upload, CheckCircle2, Lock } from "lucide-react";
 import { useState } from "react";
+import type { View } from "../types";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { toast } from "sonner";
 
 interface ListInstrumentProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 export function ListInstrument({ onNavigate }: ListInstrumentProps) {
   const { user, userProfile } = useAuth();
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     instrumentType: "",
@@ -29,9 +33,80 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
     location: "",
   });
 
+  // Handle image selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size must be less than 10MB');
+      return;
+    }
+
+    setSelectedImage(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    toast.success('Image selected!', {
+      description: 'Your image will be uploaded when you submit the form.',
+    });
+  };
+
+  // Upload image to Supabase Storage
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingImage(true);
+
+      // Create unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user!.id}-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error } = await supabase.storage
+        .from('instrument-images')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        console.error('Upload error:', error);
+        throw error;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('instrument-images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload image', {
+        description: error.message || 'Please try again.',
+      });
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user || !userProfile) {
       toast.error("Please sign in to list an instrument");
       return;
@@ -40,6 +115,21 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
     setIsSubmitting(true);
 
     try {
+      // Upload image if selected
+      let imageUrl = 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800'; // Default
+
+      if (selectedImage) {
+        const uploadedUrl = await uploadImage(selectedImage);
+        if (uploadedUrl) {
+          imageUrl = uploadedUrl;
+        } else {
+          // Upload failed, but continue with default image
+          toast.warning('Using default image', {
+            description: 'Image upload failed, but listing will be created with default image.',
+          });
+        }
+      }
+
       // Create instrument listing (will need admin approval)
       const { data, error } = await supabase
         .from('instrument_listings')
@@ -54,7 +144,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
           description: formData.description,
           location: formData.location,
           is_available: false, // Set to false - requires admin approval
-          image_url: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800', // Default image
+          image_url: imageUrl, // Use uploaded image or default
         })
         .select()
         .single();
@@ -89,7 +179,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
               <Lock className="h-12 w-12 text-accent" />
             </div>
           </div>
-          
+
           {/* Headline */}
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
             🎸 You're One Step Away!
@@ -98,10 +188,10 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
             Start Earning Money From Your Instrument
           </p>
           <p className="text-lg text-muted-foreground mb-8 max-w-lg mx-auto">
-            Join thousands of musicians who are making passive income by renting out their instruments. 
+            Join thousands of musicians who are making passive income by renting out their instruments.
             It takes less than 5 minutes to list your first instrument!
           </p>
-          
+
           {/* Benefits Grid */}
           <div className="grid md:grid-cols-2 gap-4 mb-8 text-left">
             <div className="flex items-start gap-3 p-5 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
@@ -113,7 +203,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
                 <p className="text-sm text-muted-foreground">Top owners make thousands by renting out quality instruments</p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-3 p-5 rounded-lg bg-gradient-to-br from-secondary/10 to-secondary/5 border border-secondary/20">
               <div className="h-10 w-10 rounded-full bg-secondary/20 flex items-center justify-center flex-shrink-0 mt-1">
                 <span className="text-2xl">⚡</span>
@@ -123,7 +213,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
                 <p className="text-sm text-muted-foreground">Quick setup, instant approval, start earning today</p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-3 p-5 rounded-lg bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20">
               <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 mt-1">
                 <span className="text-2xl">🛡️</span>
@@ -133,7 +223,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
                 <p className="text-sm text-muted-foreground">Your instrument is covered with our rental protection plan</p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-3 p-5 rounded-lg bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20">
               <div className="h-10 w-10 rounded-full bg-secondary/20 flex items-center justify-center flex-shrink-0 mt-1">
                 <span className="text-2xl">📊</span>
@@ -151,7 +241,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
               ⭐⭐⭐⭐⭐ Trusted by 500+ instrument owners
             </p>
             <p className="italic text-foreground">
-              "I listed my guitar and within a week, I had 3 rentals! It's been amazing passive income." 
+              "I listed my guitar and within a week, I had 3 rentals! It's been amazing passive income."
               <span className="text-sm text-muted-foreground block mt-1">- Sarah K., Nairobi</span>
             </p>
           </div>
@@ -174,7 +264,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
               Create Free Account
             </Button>
           </div>
-          
+
           <p className="text-sm text-muted-foreground">
             ✨ No listing fees • No hidden charges • Get paid directly
           </p>
@@ -228,7 +318,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
             {/* Instrument Type */}
             <div className="space-y-2">
               <Label htmlFor="instrument-type">Instrument Type *</Label>
-              <Select 
+              <Select
                 required
                 value={formData.instrumentType}
                 onValueChange={(value) => setFormData({ ...formData, instrumentType: value })}
@@ -264,7 +354,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
             {/* Condition */}
             <div className="space-y-2">
               <Label htmlFor="condition">Condition *</Label>
-              <Select 
+              <Select
                 required
                 value={formData.condition}
                 onValueChange={(value) => setFormData({ ...formData, condition: value })}
@@ -322,7 +412,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
             {/* Location */}
             <div className="space-y-2">
               <Label htmlFor="location">Location *</Label>
-              <Select 
+              <Select
                 required
                 value={formData.location}
                 onValueChange={(value) => setFormData({ ...formData, location: value })}
@@ -362,6 +452,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
                   id="photo"
                   className="hidden"
                   accept="image/*"
+                  onChange={handleImageSelect}
                 />
                 <label htmlFor="photo" className="cursor-pointer">
                   <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
@@ -369,10 +460,23 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
                     Click to upload instrument photo
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    PNG, JPG up to 10MB (Optional - default image will be used)
+                    PNG, JPG up to 10MB 
                   </p>
                 </label>
               </div>
+              {imagePreview && (
+                <div className="mt-4">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-full max-w-md mx-auto rounded-lg border-2 border-primary/20"
+                  />
+                  <p className="text-sm text-center text-secondary mt-2 flex items-center justify-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Image ready to upload
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Description */}
@@ -393,9 +497,9 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
               <Button
                 type="submit"
                 className="flex-1 bg-primary hover:bg-primary/90 h-12"
-                disabled={isSubmitting}
+                disabled={isSubmitting || uploadingImage}
               >
-                {isSubmitting ? "Listing..." : "List Instrument"}
+                {uploadingImage ? "Uploading image..." : isSubmitting ? "Listing..." : "List Instrument"}
               </Button>
               <Button
                 type="button"
@@ -415,7 +519,7 @@ export function ListInstrument({ onNavigate }: ListInstrumentProps) {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full border-secondary text-secondary hover:bg-secondary/10"
+                onClick={() => onNavigate("become-instructor")}
               >
                 Become an Instructor
               </Button>

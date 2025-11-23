@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { View } from "../types";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -9,7 +10,7 @@ import { toast } from "sonner";
 import { User, Mail, MapPin, Phone, Save, ArrowLeft } from "lucide-react";
 
 interface ProfileSettingsProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 export function ProfileSettings({ onNavigate }: ProfileSettingsProps) {

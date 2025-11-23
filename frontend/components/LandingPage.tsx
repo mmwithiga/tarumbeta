@@ -4,9 +4,10 @@ import { ThreeStepGraphic } from "./ThreeStepGraphic";
 import { Play } from "lucide-react";
 import { useState, useEffect } from "react";
 import { instrumentsService, type Instrument } from "../services/instrumentsService";
+import type { View } from "../types";
 
 interface LandingPageProps {
-  onNavigate: (view: string, instrumentId?: string) => void;
+  onNavigate: (view: View, instrumentId?: string) => void;
   onRent: (instrument: Instrument) => void;
 }
 
@@ -25,9 +26,9 @@ export function LandingPage({ onNavigate, onRent }: LandingPageProps) {
       setIsLoading(true);
       setError(null);
       console.log("🔄 Loading featured instruments...");
-      
+
       const result = await instrumentsService.getAll({ page: 1, page_size: 4 });
-      
+
       console.log("✅ Loaded instruments:", result.instruments.length);
       setFeaturedInstruments(result.instruments.slice(0, 4));
     } catch (error: any) {

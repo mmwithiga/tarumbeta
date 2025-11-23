@@ -11,6 +11,7 @@ import { SignIn } from "./components/SignIn";
 import { SignUp } from "./components/SignUp";
 import { BecomeInstructor } from "./components/BecomeInstructor";
 import { MyRentals } from "./components/MyRentals";
+import { MyMatches } from "./components/MyMatches";
 import { InstructorDashboard } from "./components/InstructorDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { LearnerDashboard } from "./components/LearnerDashboard";
@@ -24,23 +25,8 @@ import { toast } from "sonner";
 import type { Instrument } from "./services/instrumentsService";
 import type { Instructor } from "./services/instructorsService";
 
-type View = 
-  | "landing" 
-  | "browse" 
-  | "list" 
-  | "dashboard" 
-  | "checkout" 
-  | "confirmation"
-  | "signin"
-  | "signup"
-  | "become-instructor"
-  | "my-rentals"
-  | "instructor-dashboard"
-  | "admin-dashboard"
-  | "learner-dashboard"
-  | "owner-dashboard"
-  | "profile-settings"
-  | "schedule-lesson";
+import type { View } from "./types";
+import './styles/globals.css';  // ← THIS IS THE CSS IMPORT!
 
 interface BookingData {
   instrument: {
@@ -62,7 +48,7 @@ interface BookingData {
 }
 
 function AppContent() {
-  const { user, userProfile, signOut } = useAuth();
+  const { user, userProfile, signOut, loading } = useAuth();
   const [currentView, setCurrentView] = useState<View>("landing");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showDecisionModal, setShowDecisionModal] = useState(false);
@@ -79,6 +65,17 @@ function AppContent() {
       document.documentElement.classList.add("dark");
     }
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-muted-foreground animate-pulse">Loading Tarumbeta...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleToggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
@@ -99,7 +96,7 @@ function AppContent() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      
+
       // Reset all state to initial
       setCurrentView("landing");
       setBookingData({
@@ -107,11 +104,11 @@ function AppContent() {
         instructor: null,
       });
       setShowDecisionModal(false);
-      
+
       toast.success("Signed out successfully", {
         description: "See you next time!",
       });
-      
+
       // Scroll to top
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
@@ -200,16 +197,16 @@ function AppContent() {
 
     // Show loading toast and store the ID
     const loadingToastId = toast.loading("Processing payment...");
-    
+
     setTimeout(() => {
       // Dismiss the loading toast
       toast.dismiss(loadingToastId);
-      
+
       // Show success toast
       toast.success("Payment successful!", {
         description: "Your booking is confirmed.",
       });
-      
+
       handleNavigate("confirmation");
     }, 2000);
   };
@@ -262,7 +259,7 @@ function AppContent() {
       )}
 
       {currentView === "dashboard" && (
-        <MatchingDashboard 
+        <MatchingDashboard
           rentedInstrument={bookingData.instrument?.instrument_type || "Guitar"}
           instrumentId={bookingData.instrument?.id}
           onHireInstructor={handleHireInstructor}
@@ -271,6 +268,10 @@ function AppContent() {
 
       {currentView === "my-rentals" && (
         <MyRentals onNavigate={handleNavigate} />
+      )}
+
+      {currentView === "my-matches" && (
+        <MyMatches onNavigate={handleNavigate} />
       )}
 
       {currentView === "instructor-dashboard" && (

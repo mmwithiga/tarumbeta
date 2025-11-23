@@ -7,9 +7,10 @@ import { Music, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
+import type { View } from "../types";
 
 interface SignInProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 export function SignIn({ onNavigate }: SignInProps) {
@@ -21,17 +22,17 @@ export function SignIn({ onNavigate }: SignInProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       toast.error("Please fill in all fields");
       return;
     }
 
     setLoading(true);
-    
+
     try {
       const { error } = await signIn(email, password);
-      
+
       if (error) {
         toast.error("Sign in failed", {
           description: error.message || "Please check your credentials and try again"

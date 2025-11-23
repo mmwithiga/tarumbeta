@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import type { View } from '../types';
 import { rentalsService } from '../services/rentalsService';
 import { supabase } from '../lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
-import { 
+import {
   Clock,
   CheckCircle,
   XCircle,
@@ -23,7 +24,7 @@ import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
 
 interface OwnerDashboardProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 interface RentalWithInstrument {
@@ -57,6 +58,7 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
   const [rentals, setRentals] = useState<RentalWithInstrument[]>([]);
   const [instruments, setInstruments] = useState<Map<string, InstrumentDetails>>(new Map());
   const [renters, setRenters] = useState<Map<string, RenterDetails>>(new Map());
+  const [myListings, setMyListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('pending');
 
@@ -70,7 +72,7 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
     setLoading(true);
     try {
       // Load all rentals for instruments owned by this user
-      const rentalsData = await rentalsService.getOwnerRentals(userProfile?.id || '');
+      const rentalsData: RentalWithInstrument[] = await rentalsService.getOwnerRentals(userProfile?.id || '');
       setRentals(rentalsData);
 
       // Load instrument details
@@ -102,6 +104,14 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
         });
         setRenters(rentersMap);
       }
+
+      // Load owner's instrument listings
+      const { data: listingsData } = await supabase
+        .from('instrument_listings')
+        .select('*')
+        .eq('owner_id', userProfile?.id);
+
+      setMyListings(listingsData || []);
     } catch (error) {
       console.error('Error loading owner data:', error);
       toast.error('Failed to load rental data');
@@ -287,7 +297,7 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
 
         {/* Rental Management Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-[700px]">
+          <TabsList className="grid w-full grid-cols-6 lg:w-[800px]">
             <TabsTrigger value="pending">
               Pending
               {pendingCount > 0 && (
@@ -300,6 +310,7 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="returns">Returns</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="listings">My Listings</TabsTrigger>
           </TabsList>
 
           {/* Pending Requests Tab */}
@@ -583,8 +594,74 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
                   <p className="text-muted-foreground mb-6">
                     You haven't completed any rentals yet
                   </p>
-                  <Button onClick={() => onNavigate('my-listings')}>
+                  <Button onClick={() => onNavigate('owner-dashboard')}>
                     View My Listings
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* My Listings Tab */}
+          <TabsContent value="listings" className="space-y-6">
+            {myListings.length > 0 ? (
+              <Card className="shadow-premium">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Guitar className="h-5 w-5 text-primary" />
+                    My Instrument Listings ({myListings.length})
+                  </CardTitle>
+                  <CardDescription>
+                    Manage your listed instruments
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {myListings.map((listing) => (
+                      <div key={listing.id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex gap-4">
+                          {listing.image_url && (
+                            <img
+                              src={listing.image_url}
+                              alt={listing.name}
+                              className="w-24 h-24 rounded-lg object-cover"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-foreground">{listing.name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {listing.instrument_type} • {listing.condition}
+                            </p>
+                            <p className="text-sm font-medium text-primary mt-1">
+                              KES {listing.price_per_day}/day
+                            </p>
+                            <Badge className={listing.is_available ? "bg-green-500" : "bg-amber-500"}>
+                              {listing.is_available ? "Available" : "Pending Approval"}
+                            </Badge>
+                          </div>
+                        </div>
+                        {listing.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {listing.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="shadow-premium">
+                <CardContent className="text-center py-12">
+                  <Guitar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-foreground mb-2">
+                    No instruments listed
+                  </h3>
+                  <p className="text-muted-foreground mb-6">
+                    Start earning by listing your instruments for rent
+                  </p>
+                  <Button onClick={() => onNavigate('landing')}>
+                    List an Instrument
                   </Button>
                 </CardContent>
               </Card>

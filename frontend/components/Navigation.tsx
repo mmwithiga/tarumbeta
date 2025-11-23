@@ -1,8 +1,9 @@
 import { Button } from "./ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Moon, Sun, Menu, X, Music, Bell, User, LogOut, Calendar, FileText, Settings, LayoutDashboard, Package } from "lucide-react";
+import { Moon, Sun, Menu, X, Music, Bell, LogOut, Calendar, FileText, Settings, LayoutDashboard, Package } from "lucide-react";
 import { useState } from "react";
+import type { View } from "../types";
 
 interface UserProfile {
   id: string;
@@ -13,8 +14,8 @@ interface UserProfile {
 }
 
 interface NavigationProps {
-  currentView: string;
-  onNavigate: (view: string) => void;
+  currentView: View;
+  onNavigate: (view: View) => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   isLoggedIn?: boolean;
@@ -24,7 +25,7 @@ interface NavigationProps {
 }
 
 export function Navigation({
-  currentView,
+  // currentView,
   onNavigate,
   isDarkMode,
   onToggleDarkMode,
@@ -98,7 +99,7 @@ export function Navigation({
                   <Bell className="h-5 w-5" />
                   <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-secondary"></span>
                 </Button>
-                
+
                 {/* Profile Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -141,7 +142,7 @@ export function Navigation({
                       <FileText className="mr-2 h-4 w-4" />
                       <span>My Rentals</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onNavigate("dashboard")}>
+                    <DropdownMenuItem onClick={() => onNavigate("my-matches")}>
                       <Calendar className="mr-2 h-4 w-4" />
                       <span>My Matches</span>
                     </DropdownMenuItem>
@@ -166,7 +167,7 @@ export function Navigation({
                 </DropdownMenu>
               </>
             )}
-            
+
             <Button
               variant="ghost"
               size="icon"

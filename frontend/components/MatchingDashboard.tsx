@@ -6,7 +6,8 @@ import { Label } from "./ui/label";
 import { Skeleton } from "./ui/skeleton";
 import { Search, Music, Sparkles, Brain, Target, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
-import { instructorsService, type Instructor } from "../services/instructorsService";
+import { type Instructor } from "../services/instructorsService";
+import { supabase } from "../lib/supabase";
 import { toast } from "sonner";
 import { ReviewsList } from "./ReviewsList";
 import { motion, AnimatePresence } from "motion/react";
@@ -17,10 +18,10 @@ interface MatchingDashboardProps {
   onHireInstructor?: (instructor: Instructor) => void;
 }
 
-export function MatchingDashboard({ 
+export function MatchingDashboard({
   rentedInstrument = "Guitar",
   instrumentId,
-  onHireInstructor 
+  onHireInstructor
 }: MatchingDashboardProps) {
   const [showResults, setShowResults] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,11 +45,21 @@ export function MatchingDashboard({
 
   const loadInstructors = async () => {
     try {
-      const result = await instructorsService.getAll();
-      setInstructors(result.instructors);
+      // Query instructor_profiles directly from Supabase
+      const { data, error } = await supabase
+        .from('instructor_profiles')
+        .select('*, users!instructor_profiles_user_id_fkey(full_name, email, location, avatar_url)')
+        .eq('is_verified', true);
+
+      if (error) throw error;
+
+      // Ensure instructors is always an array
+      const instructorsList = Array.isArray(data) ? data : [];
+      setInstructors(instructorsList);
     } catch (error) {
       console.error("Error loading instructors:", error);
       toast.error("Failed to load instructors");
+      setInstructors([]); // Set empty array on error
     }
   };
 
@@ -63,41 +74,45 @@ export function MatchingDashboard({
     let progressValue = 0;
     const progressInterval = setInterval(() => {
       progressValue += (Math.random() * 2) + 2; // Increment by 2-4% (slower for 16 seconds)
-      
+
       if (progressValue >= 90) {
         progressValue = 90; // Cap at 90% until API completes
         clearInterval(progressInterval);
       }
-      
+
       setMatchingProgress(progressValue);
     }, 500); // Update every 500ms for 16-second duration
 
     try {
-      // Build filter params
-      const params: any = {};
+      // Query instructor_profiles directly from Supabase
+      let query = supabase
+        .from('instructor_profiles')
+        .select('*, users!instructor_profiles_user_id_fkey(full_name, email, location, avatar_url)')
+        .eq('is_verified', true);
 
-      // Apply instrument filter - FIXED to work for all instruments
-      if (filters.instrument) {
-        params.instrument = filters.instrument;
+      // Apply server-side filters
+      if (filters.instrument && filters.instrument !== "all") {
+        query = query.eq('instrument', filters.instrument);
       }
 
       if (filters.skillLevel && filters.skillLevel !== "all") {
-        params.skill_level = filters.skillLevel;
+        query = query.ilike('skill_level', `%${filters.skillLevel}%`);
       }
 
       if (filters.minRating > 0) {
-        params.min_rating = filters.minRating;
+        query = query.gte('rating', filters.minRating);
       }
 
-      // Fetch filtered instructors
-      const result = await instructorsService.getAll(params);
-      
-      // Additional client-side filtering for fields not in the API
-      let filteredInstructors = result.instructors;
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Additional client-side filtering for fields not easily queried
+      let filteredInstructors: Instructor[] = Array.isArray(data) ? data : [];
 
       // Filter by genre if selected
       if (filters.genre && filters.genre !== "all") {
-        filteredInstructors = filteredInstructors.filter(instructor => 
+        filteredInstructors = filteredInstructors.filter(instructor =>
           instructor.genre?.toLowerCase().includes(filters.genre.toLowerCase())
         );
       }
@@ -113,7 +128,7 @@ export function MatchingDashboard({
 
       // Ensure interval is cleared
       clearInterval(progressInterval);
-      
+
       // Complete the progress to 100%
       setMatchingProgress(100);
 
@@ -123,7 +138,7 @@ export function MatchingDashboard({
       // Set results and show them
       setInstructors(filteredInstructors);
       setShowResults(true);
-      
+
       toast.success(`Found ${filteredInstructors.length} instructors`, {
         description: "Matched to your preferences",
       });
@@ -131,6 +146,7 @@ export function MatchingDashboard({
       console.error("Error finding instructors:", error);
       toast.error("Failed to find instructors");
       clearInterval(progressInterval);
+      setInstructors([]); // Set empty array on error
     } finally {
       // Clean up - ensure interval is cleared
       clearInterval(progressInterval);
@@ -174,8 +190,8 @@ export function MatchingDashboard({
                 {/* Instrument (pre-filled) */}
                 <div className="space-y-2">
                   <Label htmlFor="instrument">Instrument</Label>
-                  <Select 
-                    value={filters.instrument} 
+                  <Select
+                    value={filters.instrument}
                     onValueChange={(value) => setFilters({ ...filters, instrument: value })}
                   >
                     <SelectTrigger id="instrument" className="bg-input-background">
@@ -196,7 +212,7 @@ export function MatchingDashboard({
                 {/* Skill Level */}
                 <div className="space-y-2">
                   <Label htmlFor="skill-level">Skill Level</Label>
-                  <Select 
+                  <Select
                     onValueChange={(value) => setFilters({ ...filters, skillLevel: value })}
                   >
                     <SelectTrigger id="skill-level" className="bg-input-background">
@@ -215,7 +231,7 @@ export function MatchingDashboard({
                 {/* Preferred Language */}
                 <div className="space-y-2">
                   <Label htmlFor="language">Preferred Language</Label>
-                  <Select 
+                  <Select
                     onValueChange={(value) => setFilters({ ...filters, preferredLanguage: value })}
                   >
                     <SelectTrigger id="language" className="bg-input-background">
@@ -234,7 +250,7 @@ export function MatchingDashboard({
                 {/* Learning Goal */}
                 <div className="space-y-2">
                   <Label htmlFor="learning-goal">Learning Goal</Label>
-                  <Select 
+                  <Select
                     onValueChange={(value) => setFilters({ ...filters, learningGoal: value })}
                   >
                     <SelectTrigger id="learning-goal" className="bg-input-background">
@@ -254,7 +270,7 @@ export function MatchingDashboard({
                 {/* Availability */}
                 <div className="space-y-2">
                   <Label htmlFor="availability">Availability</Label>
-                  <Select 
+                  <Select
                     onValueChange={(value) => setFilters({ ...filters, availability: value })}
                   >
                     <SelectTrigger id="availability" className="bg-input-background">
@@ -273,7 +289,7 @@ export function MatchingDashboard({
                 {/* Genre Preference */}
                 <div className="space-y-2">
                   <Label htmlFor="genre">Genre Preference</Label>
-                  <Select 
+                  <Select
                     onValueChange={(value) => setFilters({ ...filters, genre: value })}
                   >
                     <SelectTrigger id="genre" className="bg-input-background">
@@ -294,7 +310,7 @@ export function MatchingDashboard({
                 {/* Minimum Rating */}
                 <div className="space-y-2">
                   <Label htmlFor="rating">Minimum Rating</Label>
-                  <Select 
+                  <Select
                     onValueChange={(value) => setFilters({ ...filters, minRating: Number(value) })}
                   >
                     <SelectTrigger id="rating" className="bg-input-background">
@@ -320,17 +336,16 @@ export function MatchingDashboard({
                 </Button>
               </form>
 
-              {/* Stats */}
               <div className="mt-6 pt-6 border-t border-border">
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total Instructors:</span>
-                    <span className="font-semibold text-foreground">{instructors.length}</span>
+                    <span className="font-semibold text-foreground">{Array.isArray(instructors) ? instructors.length : 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Verified:</span>
                     <span className="font-semibold text-foreground">
-                      {instructors.filter(i => i.is_verified).length}
+                      {Array.isArray(instructors) ? instructors.filter(i => i.is_verified).length : 0}
                     </span>
                   </div>
                 </div>
@@ -376,7 +391,7 @@ export function MatchingDashboard({
                     Sorted by match score
                   </p>
                 </div>
-                
+
                 {/* Grid layout for 2 instructors per row */}
                 <div className="grid md:grid-cols-2 gap-6">
                   {instructors.map((instructor) => (
@@ -390,7 +405,14 @@ export function MatchingDashboard({
                       languages={["English", "Swahili"]} // Default for now
                       hourlyRate={instructor.hourly_rate}
                       matchScore={Math.min(95, 70 + (instructor.rating * 5) + (instructor.experience_years * 0.5))}
-                      genres={instructor.genre ? instructor.genre.split(",").map(g => g.trim()) : []}
+                      genres={
+                        // Handle both array and string formats
+                        Array.isArray(instructor.genre)
+                          ? instructor.genre
+                          : instructor.genre
+                            ? instructor.genre.split(",").map(g => g.trim())
+                            : []
+                      }
                       verified={instructor.is_verified}
                       rating={instructor.rating}
                       totalReviews={instructor.total_reviews}
@@ -451,7 +473,7 @@ export function MatchingDashboard({
                   >
                     <Brain className="h-12 w-12 text-white" />
                   </motion.div>
-                  
+
                   {/* Orbiting icons */}
                   <motion.div
                     animate={{ rotate: -360 }}

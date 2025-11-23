@@ -1,6 +1,7 @@
 import { rentalsService } from '../services/rentalsService';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import type { View } from '../types';
 import { supabase } from '../lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -9,11 +10,10 @@ import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Separator } from './ui/separator';
 import { Progress } from './ui/progress';
-import { 
+import {
   Calendar,
   Guitar,
   BookOpen,
-  TrendingUp,
   Clock,
   CheckCircle,
   XCircle,
@@ -22,24 +22,20 @@ import {
   Award,
   Target,
   Zap,
-  DollarSign,
-  Package,
   CalendarClock,
   User,
-  MessageSquare,
-  Star,
   ArrowRight,
-  PlayCircle,
-  PauseCircle,
   Users,
-  RotateCcw
+  RotateCcw,
+  PlayCircle,
+  Package
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, differenceInDays, isPast, isFuture, isToday } from 'date-fns';
+import { format, isFuture, differenceInDays } from 'date-fns';
 import { MyInstructors } from './MyInstructors';
 
 interface LearnerDashboardProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 interface LearnerStats {
@@ -164,26 +160,34 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
 
   const loadRentals = async () => {
     try {
+      console.log('🔍 LearnerDashboard: Loading rentals for user:', userProfile?.id);
       const data = await rentalsService.getUserRentals(userProfile?.id || '');
+      console.log('✅ LearnerDashboard: Rentals loaded:', data);
+      console.log('📊 LearnerDashboard: Rentals count:', data?.length || 0);
+
+      if (data && data.length > 0) {
+        console.log('📝 LearnerDashboard: First rental:', data[0]);
+        console.log('📝 LearnerDashboard: Rental statuses:', data.map(r => r.status));
+      }
 
       setRentals(data || []);
       calculateRentalStats(data || []);
     } catch (error) {
-      console.error('Error loading rentals:', error);
+      console.error('❌ LearnerDashboard: Error loading rentals:', error);
       setRentals([]);
     }
   };
 
   const calculateLessonStats = (lessonsData: Lesson[]) => {
-    const now = new Date();
+    // const now = new Date();
     const totalLessons = lessonsData.length;
     const completedLessons = lessonsData.filter(l => l.status === 'completed').length;
     const pendingLessons = lessonsData.filter(l => l.status === 'scheduled').length;
-    const upcomingLessons = lessonsData.filter(l => 
-      (l.status === 'approved' || l.status === 'scheduled') && 
+    const upcomingLessons = lessonsData.filter(l =>
+      (l.status === 'approved' || l.status === 'scheduled') &&
       isFuture(new Date(l.scheduled_time))
     ).length;
-    
+
     const totalHoursLearned = lessonsData
       .filter(l => l.status === 'completed')
       .reduce((sum, l) => sum + (l.duration_minutes / 60), 0);
@@ -232,16 +236,16 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
   // RENTAL STATE TRANSITION HANDLERS
   // ═══════════════════════════════════════════════════════════════
 
-  const handleCancelRental = async (rentalId: string) => {
-    try {
-      await rentalsService.cancelRental(rentalId);
-      toast.success('Rental cancelled successfully');
-      loadRentals();
-    } catch (error: any) {
-      console.error('Error cancelling rental:', error);
-      toast.error(error.message || 'Failed to cancel rental');
-    }
-  };
+  // const handleCancelRental = async (rentalId: string) => {
+  //   try {
+  //     await rentalsService.cancelRental(rentalId);
+  //     toast.success('Rental cancelled successfully');
+  //     loadRentals();
+  //   } catch (error: any) {
+  //     console.error('Error cancelling rental:', error);
+  //     toast.error(error.message || 'Failed to cancel rental');
+  //   }
+  // };
 
   const handleMarkReturned = async (rentalId: string) => {
     try {
@@ -254,20 +258,20 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-green-500';
-      case 'completed':
-        return 'bg-blue-500';
-      case 'cancelled':
-        return 'bg-red-500';
-      case 'scheduled':
-        return 'bg-yellow-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
+  // const getStatusColor = (status: string) => {
+  //   switch (status) {
+  //     case 'approved':
+  //       return 'bg-green-500';
+  //     case 'completed':
+  //       return 'bg-blue-500';
+  //     case 'cancelled':
+  //       return 'bg-red-500';
+  //     case 'scheduled':
+  //       return 'bg-yellow-500';
+  //     default:
+  //       return 'bg-gray-500';
+  //   }
+  // };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -284,30 +288,39 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return 'Pending Approval';
-      case 'approved':
-        return 'Approved';
-      case 'completed':
-        return 'Completed';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return status;
-    }
-  };
+  // const getStatusText = (status: string) => {
+  //   switch (status) {
+  //     case 'scheduled':
+  //       return 'Pending Approval';
+  //     case 'approved':
+  //       return 'Approved';
+  //     case 'completed':
+  //       return 'Completed';
+  //     case 'cancelled':
+  //       return 'Cancelled';
+  //     default:
+  //       return status;
+  //   }
+  // };
 
   // Group lessons by status
   const pendingLessons = lessons.filter(l => l.status === 'scheduled');
   const approvedLessons = lessons.filter(l => l.status === 'approved' && isFuture(new Date(l.scheduled_time)));
   const completedLessons = lessons.filter(l => l.status === 'completed');
-  const cancelledLessons = lessons.filter(l => l.status === 'cancelled');
+  // const cancelledLessons = lessons.filter(l => l.status === 'cancelled');
 
   // Group rentals by status
-  const activeRentalsData = rentals.filter(r => r.status === 'active');
-  const completedRentals = rentals.filter(r => r.status === 'completed');
+  console.log('🔍 LearnerDashboard: Total rentals:', rentals.length);
+  console.log('🔍 LearnerDashboard: All rental statuses:', rentals.map((r: any) => r.status));
+
+  // Show active, confirmed, and pending rentals (not just 'active')
+  const activeRentalsData = rentals.filter((r: any) =>
+    r.status === 'active' || r.status === 'confirmed' || r.status === 'pending'
+  );
+  const completedRentals = rentals.filter((r: any) => r.status === 'completed' || r.status === 'pending_return');
+
+  console.log('✅ LearnerDashboard: Active rentals:', activeRentalsData.length);
+  console.log('✅ LearnerDashboard: Completed rentals:', completedRentals.length);
 
   // Get instruments being learned
   const instrumentsBeingLearned = Array.from(new Set(lessons.map(l => l.instrument)));
@@ -331,7 +344,7 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                 <Guitar className="mr-2 h-4 w-4" />
                 Browse Instruments
               </Button>
-              <Button onClick={() => onNavigate('instructors')} className="bg-gradient-to-r from-primary to-secondary">
+              <Button onClick={() => onNavigate('dashboard')} className="bg-gradient-to-r from-primary to-secondary">
                 <User className="mr-2 h-4 w-4" />
                 Find Instructors
               </Button>
@@ -434,7 +447,7 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                   const instrumentLessons = lessons.filter(l => l.instrument === instrument);
                   const completedCount = instrumentLessons.filter(l => l.status === 'completed').length;
                   const totalCount = instrumentLessons.length;
-                  
+
                   return (
                     <div key={instrument} className="flex items-center gap-3 bg-muted/50 rounded-lg p-4 min-w-[200px]">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary">
@@ -529,10 +542,10 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                   </CardHeader>
                   <CardContent>
                     {(() => {
-                      const nextLesson = approvedLessons.sort((a, b) => 
+                      const nextLesson = approvedLessons.sort((a, b) =>
                         new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime()
                       )[0];
-                      
+
                       return (
                         <div className="space-y-4">
                           <div className="flex items-start gap-4">
@@ -641,8 +654,8 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                   <CardDescription>What would you like to do?</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button 
-                    className="w-full justify-between" 
+                  <Button
+                    className="w-full justify-between"
                     variant="outline"
                     onClick={() => onNavigate('browse')}
                   >
@@ -652,10 +665,10 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                     </span>
                     <ArrowRight className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    className="w-full justify-between" 
+                  <Button
+                    className="w-full justify-between"
                     variant="outline"
-                    onClick={() => onNavigate('instructors')}
+                    onClick={() => onNavigate('dashboard')}
                   >
                     <span className="flex items-center">
                       <User className="mr-2 h-4 w-4" />
@@ -663,8 +676,8 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                     </span>
                     <ArrowRight className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    className="w-full justify-between" 
+                  <Button
+                    className="w-full justify-between"
                     variant="outline"
                     onClick={() => setSelectedTab('lessons')}
                   >
@@ -719,7 +732,7 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                             <span className="ml-1">Pending</span>
                           </Badge>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                           <div>
                             <p className="text-muted-foreground">Date</p>
@@ -799,7 +812,7 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                             <span className="ml-1">Approved</span>
                           </Badge>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                           <div>
                             <p className="text-muted-foreground">Date</p>
@@ -883,7 +896,7 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                   <p className="text-muted-foreground mb-6">
                     Start your musical journey by booking a lesson with an instructor
                   </p>
-                  <Button onClick={() => onNavigate('instructors')}>
+                  <Button onClick={() => onNavigate('dashboard')}>
                     <User className="mr-2 h-4 w-4" />
                     Find Instructors
                   </Button>
@@ -905,17 +918,35 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <PlayCircle className="h-5 w-5 text-blue-600" />
-                    Active Rentals ({activeRentalsData.length})
+                    Current Rentals ({activeRentalsData.length})
                   </CardTitle>
                   <CardDescription>
-                    Instruments you're currently renting
+                    Your active and pending rentals
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {activeRentalsData.map((rental) => {
                       const daysRemaining = differenceInDays(new Date(rental.end_date), new Date());
-                      
+
+                      const getStatusColor = (status: string) => {
+                        switch (status) {
+                          case 'active': return 'bg-green-500/10 text-green-500 border-green-500/20';
+                          case 'confirmed': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+                          case 'pending': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+                          default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+                        }
+                      };
+
+                      const getStatusLabel = (status: string) => {
+                        switch (status) {
+                          case 'active': return 'Active';
+                          case 'confirmed': return 'Ready for Pickup';
+                          case 'pending': return 'Pending Approval';
+                          default: return status;
+                        }
+                      };
+
                       return (
                         <div key={rental.id} className="border rounded-lg p-4 space-y-3">
                           <div className="flex items-start gap-4">
@@ -934,10 +965,18 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                                     {rental.instrument_listings?.instrument_type}
                                   </p>
                                 </div>
-                                <Badge className="bg-blue-500">Active</Badge>
+                                <Badge className={getStatusColor(rental.status)}>
+                                  {getStatusLabel(rental.status)}
+                                </Badge>
                               </div>
-                              
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3 text-sm">
+
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground">Owner</p>
+                                  <p className="font-medium">
+                                    {rental.instrument_listings?.users?.full_name || 'Unknown'}
+                                  </p>
+                                </div>
                                 <div>
                                   <p className="text-muted-foreground">Start Date</p>
                                   <p className="font-medium">{format(new Date(rental.start_date), 'MMM dd, yyyy')}</p>
@@ -970,20 +1009,22 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                                 </div>
                               )}
 
-                              {/* Mark as Returned Button */}
-                              <div className="flex gap-2 pt-3 border-t mt-3">
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleMarkReturned(rental.id)}
-                                  className="bg-purple-600 hover:bg-purple-700"
-                                >
-                                  <RotateCcw className="mr-2 h-4 w-4" />
-                                  Mark as Returned
-                                </Button>
-                                <p className="text-xs text-muted-foreground flex items-center">
-                                  Click when you've physically returned the instrument to the owner
-                                </p>
-                              </div>
+                              {/* Mark as Returned Button - Only for active rentals */}
+                              {rental.status === 'active' && (
+                                <div className="flex gap-2 pt-3 border-t mt-3">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleMarkReturned(rental.id)}
+                                    className="bg-purple-600 hover:bg-purple-700"
+                                  >
+                                    <RotateCcw className="mr-2 h-4 w-4" />
+                                    Mark as Returned
+                                  </Button>
+                                  <p className="text-xs text-muted-foreground flex items-center">
+                                    Click when you've physically returned the instrument to the owner
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

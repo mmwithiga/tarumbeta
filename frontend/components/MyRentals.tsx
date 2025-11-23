@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import type { View } from '../types';
 import { rentalsService, Rental } from '../services/rentalsService';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { Calendar, MapPin, DollarSign, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MyRentalsProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 export function MyRentals({ onNavigate }: MyRentalsProps) {
@@ -26,11 +27,11 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
 
   const loadRentals = async () => {
     if (!userProfile) return;
-    
+
     try {
       setLoading(true);
-      const status = activeTab === 'all' ? undefined : activeTab;
-      const data = await rentalsService.getUserRentals(userProfile.id, status);
+      // Fetch ALL rentals and filter on frontend
+      const data = await rentalsService.getUserRentals(userProfile.id);
       setRentals(data);
     } catch (error: any) {
       console.error('Error loading rentals:', error);
@@ -44,7 +45,7 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
 
   const handleCancelRental = async (rentalId: string) => {
     try {
-      await rentalsService.updateStatus(rentalId, 'cancelled');
+      await rentalsService.cancelRental(rentalId);
       toast.success('Rental cancelled successfully');
       loadRentals();
     } catch (error: any) {
@@ -58,11 +59,14 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
     switch (status) {
       case 'active':
         return 'bg-green-500/10 text-green-500 border-green-500/20';
+      case 'confirmed':
+        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
       case 'pending':
         return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
       case 'completed':
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+        return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
       case 'cancelled':
+      case 'rejected':
         return 'bg-red-500/10 text-red-500 border-red-500/20';
       default:
         return '';
@@ -75,6 +79,28 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
       day: 'numeric',
       year: 'numeric'
     });
+  };
+
+  // Filter rentals based on active tab
+  const filteredRentals = rentals.filter(rental => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'pending') return rental.status === 'pending';
+    if (activeTab === 'active') return rental.status === 'active' || rental.status === 'confirmed';
+    if (activeTab === 'completed') return ['completed', 'cancelled', 'rejected'].includes(rental.status);
+    return true;
+  });
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'active': return 'Active';
+      case 'confirmed': return 'Ready for Pickup';
+      case 'pending': return 'Pending Approval';
+      case 'completed': return 'Completed';
+      case 'cancelled': return 'Cancelled';
+      case 'rejected': return 'Rejected';
+      case 'pending_return': return 'Return Initiated';
+      default: return status;
+    }
   };
 
   if (!userProfile) {
@@ -100,9 +126,9 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
         <TabsList>
           <TabsTrigger value="all">All Rentals</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
+          <TabsTrigger value="active">Active & Confirmed</TabsTrigger>
+          <TabsTrigger value="pending">Pending Requests</TabsTrigger>
+          <TabsTrigger value="completed">History</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -121,15 +147,15 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
             </Card>
           ))}
         </div>
-      ) : rentals.length === 0 ? (
+      ) : filteredRentals.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Package className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">No rentals found</h3>
             <p className="text-muted-foreground mb-6">
-              {activeTab === 'all' 
-                ? "You haven't rented any instruments yet" 
-                : `No ${activeTab} rentals`}
+              {activeTab === 'all'
+                ? "You haven't rented any instruments yet"
+                : `No ${activeTab} rentals found`}
             </p>
             <Button onClick={() => onNavigate('browse')}>
               Browse Instruments
@@ -138,7 +164,7 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {rentals.map((rental) => (
+          {filteredRentals.map((rental) => (
             <Card key={rental.id} className="overflow-hidden">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -151,7 +177,7 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
                     </CardDescription>
                   </div>
                   <Badge className={getStatusColor(rental.status)}>
-                    {rental.status}
+                    {getStatusLabel(rental.status)}
                   </Badge>
                 </div>
               </CardHeader>
@@ -174,7 +200,7 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
                       {formatDate(rental.start_date)} - {formatDate(rental.end_date)}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <DollarSign className="h-4 w-4" />
                     <span className="font-semibold text-foreground">

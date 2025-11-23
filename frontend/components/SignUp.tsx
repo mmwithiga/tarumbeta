@@ -6,11 +6,12 @@ import { Separator } from "./ui/separator";
 import { Checkbox } from "./ui/checkbox";
 import { Music, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import type { View } from "../types";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 
 interface SignUpProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 export function SignUp({ onNavigate }: SignUpProps) {
@@ -29,12 +30,12 @@ export function SignUp({ onNavigate }: SignUpProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.email || !formData.password) {
       toast.error("Please fill in all required fields");
       return;
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords don't match!");
       return;
@@ -46,11 +47,11 @@ export function SignUp({ onNavigate }: SignUpProps) {
     }
 
     setLoading(true);
-    
+
     try {
       const role = formData.wantToTeach ? 'instructor' : 'learner';
       const { error } = await signUp(formData.email, formData.password, formData.name, role);
-      
+
       if (error) {
         toast.error("Sign up failed", {
           description: error.message || "Please try again"
@@ -277,7 +278,7 @@ export function SignUp({ onNavigate }: SignUpProps) {
             onClick={() => onNavigate("signin")}
             className="text-primary font-semibold hover:underline"
           >
-            Sign in
+            Log in
           </button>
         </p>
       </Card>

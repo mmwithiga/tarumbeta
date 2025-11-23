@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import type { View } from '../types';
 import { supabase } from '../lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -7,11 +8,11 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Separator } from './ui/separator';
-import { 
-  Calendar, 
-  Users, 
-  DollarSign, 
-  Star, 
+import {
+  Calendar,
+  Users,
+  DollarSign,
+  Star,
   Clock,
   CheckCircle,
   XCircle,
@@ -22,7 +23,7 @@ import {
 import { toast } from 'sonner';
 
 interface InstructorDashboardProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 interface Lesson {
@@ -35,7 +36,7 @@ interface Lesson {
   session_type: 'online' | 'in-person';
   scheduled_time: string;
   duration_minutes: number;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'completed' | 'cancelled' | 'approved';
   price: number;
   created_at: string;
   learner?: {
@@ -81,7 +82,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
 
     try {
       setLoading(true);
-      
+
       // Fetch instructor profile
       const { data: profile, error } = await supabase
         .from('instructor_profiles')
@@ -109,7 +110,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
 
     try {
       setLoading(true);
-      
+
       // Build query based on active tab
       let query = supabase
         .from('lessons')
@@ -150,7 +151,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
         .select('*', { count: 'exact', head: true })
         .eq('instructor_id', instructorProfile.id)
         .eq('status', 'scheduled');
-      
+
       if (count && count > 0) {
         console.log(`⏳ ${count} pending lessons`);
       }
@@ -394,12 +395,12 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                                   {lesson.learner?.email}
                                 </p>
                               </div>
-                              <Badge 
+                              <Badge
                                 variant={
                                   lesson.status === 'scheduled' ? 'secondary' :
-                                  lesson.status === 'approved' ? 'default' :
-                                  lesson.status === 'completed' ? 'outline' :
-                                  'destructive'
+                                    lesson.status === 'approved' ? 'default' :
+                                      lesson.status === 'completed' ? 'outline' :
+                                        'destructive'
                                 }
                               >
                                 {lesson.status}

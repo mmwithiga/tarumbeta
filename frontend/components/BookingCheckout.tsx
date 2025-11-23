@@ -58,9 +58,11 @@ export function BookingCheckout({
       const rental = await rentalsService.createRental({
         user_id: userProfile.id,
         instrument_id: instrument.id,
+        rental_period: 'daily',
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         total_price: total,
+        with_instructor: !!instructor,
         status: 'pending', // Changed from 'confirmed' to 'pending'
       });
 
@@ -83,7 +85,7 @@ export function BookingCheckout({
           <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-6">
             Review Your Booking
           </h1>
-          
+
           {/* Progress Indicator */}
           <div className="flex items-center gap-2 mb-4">
             <div className="flex items-center gap-2">
@@ -126,7 +128,7 @@ export function BookingCheckout({
                   Edit
                 </Button>
               </div>
-              
+
               <div className="flex gap-4">
                 <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                   <img
@@ -160,7 +162,7 @@ export function BookingCheckout({
                     Remove
                   </Button>
                 </div>
-                
+
                 <div className="flex gap-4">
                   <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-secondary/20">
                     <img
@@ -191,7 +193,7 @@ export function BookingCheckout({
                     <p className="text-sm text-muted-foreground">Pay with mobile money</p>
                   </div>
                 </button>
-                
+
                 <button className="w-full flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
                     <CreditCard className="h-6 w-6 text-muted-foreground" />
@@ -209,27 +211,27 @@ export function BookingCheckout({
           <div className="lg:col-span-1">
             <Card className="p-6 shadow-premium sticky top-24">
               <h2 className="text-xl font-semibold text-foreground mb-6">Order Summary</h2>
-              
+
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Instrument Rental</span>
                   <span className="font-medium text-foreground">KES {instrument.cost}</span>
                 </div>
-                
+
                 {instructor && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Instructor (1 hour)</span>
                     <span className="font-medium text-foreground">KES {instructor.cost}</span>
                   </div>
                 )}
-                
+
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Service Fee</span>
                   <span className="font-medium text-foreground">KES {serviceFee}</span>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div className="flex justify-between">
                   <span className="text-lg font-semibold text-foreground">Total</span>
                   <span className="text-2xl font-bold text-primary">KES {total}</span>

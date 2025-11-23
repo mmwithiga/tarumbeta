@@ -4,16 +4,17 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
-import { Checkbox } from "./ui/checkbox";
+
 import { Badge } from "./ui/badge";
 import { Upload, CheckCircle2, Award, Music2, Lock } from "lucide-react";
 import { useState } from "react";
+import type { View } from "../types";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { toast } from "sonner";
 
 interface BecomeInstructorProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
 }
 
 export function BecomeInstructor({ onNavigate }: BecomeInstructorProps) {
@@ -39,10 +40,10 @@ export function BecomeInstructor({ onNavigate }: BecomeInstructorProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     console.log("📝 Form data:", formData);
     console.log("🎵 Selected genres:", selectedGenres);
-    
+
     if (!user || !userProfile) {
       toast.error("Please sign in to apply");
       return;
@@ -58,7 +59,7 @@ export function BecomeInstructor({ onNavigate }: BecomeInstructorProps) {
 
     try {
       console.log("🚀 Submitting application...");
-      
+
       // Create instructor application
       const { data, error } = await supabase
         .from('instructor_applications')
@@ -81,7 +82,7 @@ export function BecomeInstructor({ onNavigate }: BecomeInstructorProps) {
       }
 
       console.log("✅ Application created:", data);
-      
+
       setSubmitted(true);
       toast.success("Application submitted!", {
         description: "Our team will review it soon.",
@@ -116,7 +117,7 @@ export function BecomeInstructor({ onNavigate }: BecomeInstructorProps) {
           <p className="text-lg text-muted-foreground mb-8 max-w-lg mx-auto">
             To become an instructor on Tarumbeta, you'll need to sign in first. Join our community of talented music educators and inspire the next generation of musicians!
           </p>
-          
+
           {/* Benefits List */}
           <div className="grid md:grid-cols-2 gap-4 mb-8 text-left">
             <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30">
@@ -166,7 +167,7 @@ export function BecomeInstructor({ onNavigate }: BecomeInstructorProps) {
               Create New Account
             </Button>
           </div>
-          
+
           <p className="text-sm text-muted-foreground mt-6">
             💡 <strong>Tip:</strong> When creating your account, make sure to check "I want to teach music" to be eligible for instructor applications!
           </p>
@@ -302,8 +303,8 @@ export function BecomeInstructor({ onNavigate }: BecomeInstructorProps) {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="instrument">Primary Instrument *</Label>
-                  <Select 
-                    required 
+                  <Select
+                    required
                     value={formData.instrument}
                     onValueChange={(value) => setFormData({ ...formData, instrument: value })}
                   >
