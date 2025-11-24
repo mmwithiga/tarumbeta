@@ -95,10 +95,11 @@ export function Navigation({
           <div className="flex items-center gap-3">
             {isLoggedIn && (
               <>
-                <Button variant="ghost" size="icon" className="relative">
+                {/* Notification Button */}
+                {/* <Button variant="ghost" size="icon" className="relative">
                   <Bell className="h-5 w-5" />
                   <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-secondary"></span>
-                </Button>
+                </Button> */}
 
                 {/* Profile Dropdown */}
                 <DropdownMenu>

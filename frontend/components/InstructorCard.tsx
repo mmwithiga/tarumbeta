@@ -35,7 +35,7 @@ export function InstructorCard({
       <Badge className="absolute top-4 right-4 z-10 bg-secondary text-secondary-foreground px-3 py-1">
         Match: {matchScore}%
       </Badge>
-      
+
       <div className="p-6 space-y-4">
         <div className="flex items-start gap-4">
           <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-secondary/20">
@@ -73,7 +73,7 @@ export function InstructorCard({
 
         <div className="flex items-center justify-between pt-2">
           <div>
-            <p className="text-2xl font-bold text-primary">KES {hourlyRate}</p>
+            <p className="text-2xl font-bold text-primary dark:text-primary dark:brightness-165">KES {hourlyRate}</p>
             <p className="text-xs text-muted-foreground">per hour</p>
           </div>
           <Button

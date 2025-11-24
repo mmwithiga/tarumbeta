@@ -56,7 +56,7 @@ export function InstrumentCard({
         </div>
         <div className="flex items-center justify-between pt-2">
           <div>
-            <p className="text-2xl font-bold text-primary">KES {hourlyRate}</p>
+            <p className="text-2xl font-bold text-primary dark:text-primary dark:brightness-165">KES {hourlyRate}</p>
             <p className="text-xs text-muted-foreground">per day</p>
           </div>
           <Button

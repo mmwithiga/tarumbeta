@@ -308,7 +308,7 @@ export function MyMatches({ onNavigate }: MyMatchesProps) {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm text-muted-foreground">Starting from</p>
-                                    <p className="text-2xl font-bold text-primary">
+                                    <p className="text-2xl font-bold text-primary dark:text-primary dark:brightness-165">
                                         KES {instructor.hourly_rate.toLocaleString()}
                                         <span className="text-sm font-normal text-muted-foreground">/hour</span>
                                     </p>
@@ -409,7 +409,7 @@ export function MyMatches({ onNavigate }: MyMatchesProps) {
 
                 {/* Matches Tabs */}
                 <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-6 lg:w-[900px]">
+                    <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 lg:w-[900px] h-auto gap-2">
                         <TabsTrigger value="all">
                             All ({matches.length})
                         </TabsTrigger>

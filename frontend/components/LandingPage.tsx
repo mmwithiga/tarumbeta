@@ -188,7 +188,7 @@ export function LandingPage({ onNavigate, onRent }: LandingPageProps) {
             <Button
               size="lg"
               variant="outline"
-              className="border-white text-white hover:bg-white/10 text-lg px-8 h-14"
+              className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 text-lg px-8 h-14"
               onClick={() => onNavigate("list")}
             >
               List Your Instrument

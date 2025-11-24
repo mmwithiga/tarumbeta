@@ -65,7 +65,7 @@ export function SignIn({ onNavigate }: SignInProps) {
           alt=""
           className="h-full w-full object-cover blur-sm"
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-background via-background/95 to-background/90"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-background/0 via-background/95 to-background/90"></div>
       </div>
 
       <Card className="relative w-full max-w-md p-8 shadow-premium-hover">

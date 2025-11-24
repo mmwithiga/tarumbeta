@@ -124,7 +124,7 @@ export function MyRentals({ onNavigate }: MyRentalsProps) {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-2">
           <TabsTrigger value="all">All Rentals</TabsTrigger>
           <TabsTrigger value="active">Active & Confirmed</TabsTrigger>
           <TabsTrigger value="pending">Pending Requests</TabsTrigger>

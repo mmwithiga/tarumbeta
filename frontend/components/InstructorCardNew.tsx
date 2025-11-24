@@ -50,7 +50,7 @@ export function InstructorCardNew({
           />
           {/* Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/20"></div>
-          
+
           {/* Match Badge - Top Right */}
           <div className="absolute top-5 right-5">
             <div className="px-4 py-1.5 rounded-full bg-secondary text-white text-sm font-semibold shadow-lg backdrop-blur-sm">
@@ -118,7 +118,7 @@ export function InstructorCardNew({
                   <span className="text-base font-normal text-white/80">/hour</span>
                 </p>
               </div>
-              
+
               <div className="flex gap-2">
                 <Button
                   onClick={() => onHire(id)}
@@ -126,7 +126,7 @@ export function InstructorCardNew({
                 >
                   Hire Instructor
                 </Button>
-                
+
                 {totalReviews > 0 && (
                   <Button
                     onClick={() => setShowReviews(true)}

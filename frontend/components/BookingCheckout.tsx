@@ -141,7 +141,7 @@ export function BookingCheckout({
                   <h3 className="font-semibold text-foreground mb-2">{instrument.name}</h3>
                   <div className="space-y-1 text-sm text-muted-foreground">
                     <p>Duration: {instrument.duration} days</p>
-                    <p className="text-lg font-bold text-foreground">KES {instrument.cost}</p>
+                    <p className="text-lg font-bold text-foreground dark:text-primary dark:brightness-165">KES {instrument.cost}</p>
                   </div>
                 </div>
               </div>
@@ -174,7 +174,7 @@ export function BookingCheckout({
                   <div className="flex-1">
                     <h3 className="font-semibold text-foreground mb-1">{instructor.name}</h3>
                     <p className="text-sm text-muted-foreground mb-2">{instructor.instrument} Instructor</p>
-                    <p className="text-lg font-bold text-foreground">KES {instructor.cost}/hour</p>
+                    <p className="text-lg font-bold text-foreground dark:text-primary dark:brightness-165">KES {instructor.cost}/hour</p>
                   </div>
                 </div>
               </Card>
@@ -234,7 +234,7 @@ export function BookingCheckout({
 
                 <div className="flex justify-between">
                   <span className="text-lg font-semibold text-foreground">Total</span>
-                  <span className="text-2xl font-bold text-primary">KES {total}</span>
+                  <span className="text-2xl font-bold text-primary dark:text-primary dark:brightness-165">KES {total}</span>
                 </div>
               </div>
 

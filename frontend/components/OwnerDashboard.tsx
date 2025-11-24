@@ -221,7 +221,7 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
               </div>
               <div>
                 <p className="text-muted-foreground">Total Price</p>
-                <p className="font-medium">KES {rental.total_price}</p>
+                <p className="font-medium dark:text-primary dark:brightness-165">KES {rental.total_price}</p>
               </div>
             </div>
 
@@ -287,7 +287,7 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
               <DollarSign className="h-5 w-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">KES {totalEarnings}</div>
+              <div className="text-3xl font-bold text-foreground dark:text-primary dark:brightness-165">KES {totalEarnings}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 From completed rentals
               </p>
@@ -297,7 +297,7 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
 
         {/* Rental Management Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-[800px]">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 lg:w-[800px] h-auto gap-2">
             <TabsTrigger value="pending">
               Pending
               {pendingCount > 0 && (

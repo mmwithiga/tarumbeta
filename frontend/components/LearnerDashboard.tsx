@@ -470,7 +470,7 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
 
         {/* Main Content Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-[650px]">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 lg:w-[650px] h-auto gap-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="lessons">
               My Lessons
@@ -748,7 +748,7 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                           </div>
                           <div>
                             <p className="text-muted-foreground">Price</p>
-                            <p className="font-medium">KES {lesson.price}</p>
+                            <p className="font-medium dark:text-primary dark:brightness-165">KES {lesson.price}</p>
                           </div>
                         </div>
 
@@ -828,7 +828,7 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                           </div>
                           <div>
                             <p className="text-muted-foreground">Price</p>
-                            <p className="font-medium">KES {lesson.price}</p>
+                            <p className="font-medium dark:text-primary dark:brightness-165">KES {lesson.price}</p>
                           </div>
                         </div>
 
@@ -987,7 +987,7 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
                                 </div>
                                 <div>
                                   <p className="text-muted-foreground">Total Paid</p>
-                                  <p className="font-medium">KES {rental.total_price}</p>
+                                  <p className="font-medium dark:text-primary dark:brightness-165">KES {rental.total_price}</p>
                                 </div>
                               </div>
 

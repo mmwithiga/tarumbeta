@@ -501,7 +501,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 
         {/* Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-[500px]">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 lg:w-[500px] h-auto gap-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="instructors">
               Instructors
@@ -637,7 +637,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                           </div>
                           <div>
                             <span className="text-muted-foreground">Rate:</span>
-                            <span className="ml-2 font-medium">KES {app.hourly_rate}/hr</span>
+                            <span className="ml-2 font-medium dark:text-primary dark:brightness-165">KES {app.hourly_rate}/hr</span>
                           </div>
                         </div>
 
