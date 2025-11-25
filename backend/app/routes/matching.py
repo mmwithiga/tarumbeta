@@ -28,38 +28,92 @@ def find_instructors():
         
         # Get all available instructors for the instrument - uses instructor_profiles table
         instructors_response = supabase.table('instructor_profiles').select(
-            '*, users!instructor_profiles_user_id_fkey(full_name, email, location, avatar_url)'
-        ).eq('instrument', learner_profile['instrument_type']).execute()
+            '*, users!instructor_profiles_user_id_fkey(full_name, email, location, avatar_url, language)'
+        ).eq('is_verified', True).execute()
         
         instructors = instructors_response.data
         
         if not instructors:
-            return jsonify({
-                'matches': [],
-                'message': f'No instructors found for {learner_profile["instrument_type"]}'
-            }), 200
+            print("⚠️ No verified instructors found in DB. Falling back to synthetic model data.")
+            # return jsonify({
+            #     'matches': [],
+            #     'message': f'No instructors found for {learner_profile["instrument_type"]}'
+            # }), 200
         
         # Import and use ML model
         try:
-            from app.ml_models.instructor_matcher import InstructorMatcher
-            matcher = InstructorMatcher()
-            matches = matcher.predict_matches(learner_profile, instructors)
+            from app.tarumbeta_ml.src.api.inference_semantic import get_matches
+            print(f"🚀 Using ML Model for matching with {len(instructors)} candidates...")
+            
+            # FORCE SYNTHETIC MODE (User Request)
+            # Pass candidates=None to trigger fallback to synthetic training data
+            matches = get_matches(learner_profile, candidates=None, top_k=12)
+            
+            # Since we are using synthetic data, the IDs won't match our DB.
+            # We must use the ML results directly.
+            
+            final_matches = []
+            for m in matches:
+                # Generate reasons
+                reasons = []
+                if m['match_score'] > 0.8:
+                    reasons.append("Strong match based on your profile")
+                
+                final_matches.append({
+                    'instructor_id': m['instructor_id'], # Synthetic ID
+                    'instructor_name': m['name'],
+                    'instructor_email': 'synthetic@example.com',
+                    'instructor_avatar': None, # No avatar for synthetic
+                    'hourly_rate': m.get('hourly_rate', 2000),
+                    'experience_years': m.get('years_experience', 5),
+                    'rating': m.get('rating', 5.0),
+                    'bio': m.get('bio_short', 'Synthetic Instructor Bio'),
+                    'match_score': int(m['match_score'] * 100),
+                    'match_reasons': reasons,
+                    'recommendation_strength': "Excellent Match" if m['match_score'] > 0.8 else "Good Match"
+                })
+                
+            # Sort by score
+            final_matches.sort(key=lambda x: x['match_score'], reverse=True)
+            matches = final_matches
+
         except Exception as ml_error:
-            print(f"ML model error: {str(ml_error)}")
+            print(f"⚠️ ML model error: {str(ml_error)}")
+            import traceback
+            traceback.print_exc()
             # Fallback: simple rule-based matching
             matches = simple_matching(learner_profile, instructors)
         
         # Save top matches to database
         for match in matches[:5]:  # Save top 5
+            # Skip logging for synthetic IDs (which start with 'I' or are not UUIDs)
+            if str(match['instructor_id']).startswith('I') or len(str(match['instructor_id'])) < 30:
+                continue
+
             try:
+                # 1. Insert into match_logs (The "Audit Trail")
+                log_response = supabase.table('match_logs').insert({
+                    'learner_id': user_id,
+                    'instructor_id': match['instructor_id'],
+                    'similarity_score': match['match_score'] / 100.0, 
+                    'algorithm_features': learner_profile,
+                    'model_version': 'v1_semantic_dynamic'
+                }).execute()
+                
+                match_log_id = log_response.data[0]['id']
+
+                # 2. Insert into instructor_matches (The "User Notification")
                 supabase.table('instructor_matches').insert({
                     'learner_id': user_id,
                     'instructor_id': match['instructor_id'],
-                    'match_score': int(match['match_score'] * 100),  # Convert to 0-100 INT
-                    'status': 'suggested'  # FIXED: was 'pending', schema uses 'suggested'
+                    'match_log_id': match_log_id,
+                    'match_score': match['match_score'], 
+                    'status': 'suggested',
+                    'bio': match['bio']
                 }).execute()
-            except:
-                pass  # Ignore duplicates
+            except Exception as db_error:
+                # print(f"⚠️ Failed to save match log: {db_error}")
+                pass  # Ignore duplicates or errors to keep API responsive
         
         return jsonify({
             'matches': matches[:5],  # Return top 5

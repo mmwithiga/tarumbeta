@@ -6,10 +6,9 @@ import { Label } from "./ui/label";
 import { Skeleton } from "./ui/skeleton";
 import { Search, Music, Sparkles, Brain, Target, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
-import { type Instructor } from "../services/instructorsService";
+import { type Instructor, instructorsService } from "../services/instructorsService";
 import { supabase } from "../lib/supabase";
 import { toast } from "sonner";
-import { ReviewsList } from "./ReviewsList";
 import { motion, AnimatePresence } from "motion/react";
 
 interface MatchingDashboardProps {
@@ -20,7 +19,6 @@ interface MatchingDashboardProps {
 
 export function MatchingDashboard({
   rentedInstrument = "Guitar",
-  instrumentId,
   onHireInstructor
 }: MatchingDashboardProps) {
   const [showResults, setShowResults] = useState(false);
@@ -36,6 +34,7 @@ export function MatchingDashboard({
     learningGoal: "",
     genre: "",
     minRating: 0,
+    location: "", // New location filter
   });
 
   useEffect(() => {
@@ -84,47 +83,26 @@ export function MatchingDashboard({
     }, 500); // Update every 500ms for 16-second duration
 
     try {
-      // Query instructor_profiles directly from Supabase
-      let query = supabase
-        .from('instructor_profiles')
-        .select('*, users!instructor_profiles_user_id_fkey(full_name, email, location, avatar_url)')
-        .eq('is_verified', true);
+      // Construct profile for ML model
+      const profile = {
+        instrument_type: filters.instrument === "all" ? "" : filters.instrument,
+        skill_level: filters.skillLevel === "all" ? "" : filters.skillLevel,
+        experience_level: filters.skillLevel === "all" ? "" : filters.skillLevel, // Required by backend validation
+        teaching_language: filters.preferredLanguage === "all" ? "" : filters.preferredLanguage,
+        learning_goals: filters.learningGoal === "all" ? [] : [filters.learningGoal],
+        // Construct bio keywords from goal and genre
+        bio_keywords: [
+          filters.learningGoal !== "all" ? filters.learningGoal : "",
+          filters.genre !== "all" ? filters.genre : ""
+        ].filter(Boolean).join(" "),
+        budget: 2000, // Default budget if not specified
+        location: filters.location === "all" || !filters.location ? "Nairobi" : filters.location // Default to Nairobi if not selected
+      };
 
-      // Apply server-side filters
-      if (filters.instrument && filters.instrument !== "all") {
-        query = query.eq('instrument', filters.instrument);
-      }
+      console.log("🚀 Sending profile to ML model:", profile);
 
-      if (filters.skillLevel && filters.skillLevel !== "all") {
-        query = query.ilike('skill_level', `%${filters.skillLevel}%`);
-      }
-
-      if (filters.minRating > 0) {
-        query = query.gte('rating', filters.minRating);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      // Additional client-side filtering for fields not easily queried
-      let filteredInstructors: Instructor[] = Array.isArray(data) ? data : [];
-
-      // Filter by genre if selected
-      if (filters.genre && filters.genre !== "all") {
-        filteredInstructors = filteredInstructors.filter(instructor =>
-          instructor.genre?.toLowerCase().includes(filters.genre.toLowerCase())
-        );
-      }
-
-      // Filter by availability if selected (client-side)
-      if (filters.availability && filters.availability !== "all") {
-        filteredInstructors = filteredInstructors.filter(instructor => {
-          if (!instructor.availability) return true; // Include if no availability set
-          // Check if availability matches (you can customize this logic)
-          return true; // For now, include all
-        });
-      }
+      // Call ML API
+      const matches = await instructorsService.findMatches(profile);
 
       // Ensure interval is cleared
       clearInterval(progressInterval);
@@ -136,11 +114,15 @@ export function MatchingDashboard({
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Set results and show them
-      setInstructors(filteredInstructors);
+      // The ML API returns enriched instructor objects, but we might need to map them if the shape differs slightly
+      // The backend returns a list of dicts that matches the Instructor interface mostly
+      // Ensure matches are sorted by score descending
+      const sortedMatches = [...matches].sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
+      setInstructors(sortedMatches);
       setShowResults(true);
 
-      toast.success(`Found ${filteredInstructors.length} instructors`, {
-        description: "Matched to your preferences",
+      toast.success(`Found ${matches.length} instructors`, {
+        description: "Matched to your preferences using AI",
       });
     } catch (error) {
       console.error("Error finding instructors:", error);
@@ -286,6 +268,26 @@ export function MatchingDashboard({
                   </Select>
                 </div>
 
+                {/* Location */}
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Select
+                    onValueChange={(value) => setFilters({ ...filters, location: value })}
+                  >
+                    <SelectTrigger id="location" className="bg-input-background">
+                      <SelectValue placeholder="Select location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Locations</SelectItem>
+                      <SelectItem value="Nairobi">Nairobi</SelectItem>
+                      <SelectItem value="Mombasa">Mombasa</SelectItem>
+                      <SelectItem value="Kisumu">Kisumu</SelectItem>
+                      <SelectItem value="Nakuru">Nakuru</SelectItem>
+                      <SelectItem value="Eldoret">Eldoret</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Genre Preference */}
                 <div className="space-y-2">
                   <Label htmlFor="genre">Genre Preference</Label>
@@ -398,13 +400,13 @@ export function MatchingDashboard({
                     <InstructorCardNew
                       key={instructor.id}
                       id={instructor.id}
-                      name={instructor.users?.full_name || "Unknown Instructor"}
-                      imageUrl={instructor.profile_image_url || instructor.users?.avatar_url || ""}
+                      name={instructor.instructor_name || instructor.users?.full_name || "Unknown Instructor"}
+                      imageUrl={instructor.instructor_avatar || instructor.profile_image_url || instructor.users?.avatar_url || ""}
                       instrument={instructor.instrument}
                       yearsExperience={instructor.experience_years}
                       languages={["English", "Swahili"]} // Default for now
                       hourlyRate={instructor.hourly_rate}
-                      matchScore={Math.min(95, 70 + (instructor.rating * 5) + (instructor.experience_years * 0.5))}
+                      matchScore={instructor.match_score || Math.min(95, 70 + (instructor.rating * 5) + (instructor.experience_years * 0.5))}
                       genres={
                         // Handle both array and string formats
                         Array.isArray(instructor.genre)

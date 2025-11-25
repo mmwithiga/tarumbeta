@@ -75,7 +75,7 @@ export function SupabaseDiagnostic() {
     }
   };
 
-  if (status === 'checking') {
+   /* if (status === 'checking') {
     return (
       <div className="fixed bottom-4 right-4 z-50 max-w-sm">
         <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
@@ -122,5 +122,5 @@ export function SupabaseDiagnostic() {
         </Button>
       </Alert>
     </div>
-  );
+  ); */
 }

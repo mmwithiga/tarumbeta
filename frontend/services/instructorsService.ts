@@ -29,6 +29,12 @@ export interface Instructor {
     email?: string;
     phone?: string;
   };
+  // ML API flat fields
+  instructor_name?: string;
+  instructor_avatar?: string;
+  match_score?: number;
+  match_reasons?: string[];
+  recommendation_strength?: string;
 }
 
 export const instructorsService = {
@@ -45,9 +51,9 @@ export const instructorsService = {
   }) => {
     try {
       console.log('📡 Fetching instructors from Flask API...');
-      
+
       const token = await getAuthToken();
-      
+
       const queryParams = new URLSearchParams();
       if (params?.instrument) queryParams.append('instrument', params.instrument);
       if (params?.verified !== undefined) queryParams.append('verified', params.verified.toString());
@@ -55,7 +61,7 @@ export const instructorsService = {
       if (params?.skill_level) queryParams.append('skill_level', params.skill_level);
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
-      
+
       const response = await fetch(`${API_URL}/api/instructors?${queryParams}`, {
         method: 'GET',
         headers: {
@@ -63,17 +69,17 @@ export const instructorsService = {
           ...(token && { 'Authorization': `Bearer ${token}` })
         }
       });
-      
+
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Failed to fetch instructors' }));
         throw new Error(error.error || 'Failed to fetch instructors');
       }
-      
+
       const data = await response.json();
       console.log(`✅ Fetched ${data?.length || 0} instructors`);
-      
+
       return { instructors: data || [] };
-      
+
     } catch (error: any) {
       console.error('❌ Get instructors error:', error);
       return { instructors: [] };
@@ -86,7 +92,7 @@ export const instructorsService = {
   getById: async (id: string) => {
     try {
       const token = await getAuthToken();
-      
+
       const response = await fetch(`${API_URL}/api/instructors/${id}`, {
         method: 'GET',
         headers: {
@@ -94,15 +100,15 @@ export const instructorsService = {
           ...(token && { 'Authorization': `Bearer ${token}` })
         }
       });
-      
+
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Instructor not found' }));
         throw new Error(error.error || 'Instructor not found');
       }
-      
+
       const instructor = await response.json();
       return instructor;
-      
+
     } catch (error: any) {
       console.error('❌ Get instructor error:', error);
       throw error;
@@ -115,11 +121,11 @@ export const instructorsService = {
   create: async (data: Partial<Instructor>) => {
     try {
       const token = await getAuthToken();
-      
+
       if (!token) {
         throw new Error('Authentication required');
       }
-      
+
       const response = await fetch(`${API_URL}/api/instructors`, {
         method: 'POST',
         headers: {
@@ -128,16 +134,16 @@ export const instructorsService = {
         },
         body: JSON.stringify(data)
       });
-      
+
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Failed to create instructor profile' }));
         throw new Error(error.error || 'Failed to create instructor profile');
       }
-      
+
       const instructor = await response.json();
       console.log('✅ Instructor profile created successfully');
       return instructor;
-      
+
     } catch (error: any) {
       console.error('❌ Create instructor error:', error);
       throw error;
@@ -150,11 +156,11 @@ export const instructorsService = {
   update: async (id: string, data: Partial<Instructor>) => {
     try {
       const token = await getAuthToken();
-      
+
       if (!token) {
         throw new Error('Authentication required');
       }
-      
+
       const response = await fetch(`${API_URL}/api/instructors/${id}`, {
         method: 'PUT',
         headers: {
@@ -163,16 +169,16 @@ export const instructorsService = {
         },
         body: JSON.stringify(data)
       });
-      
+
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Failed to update instructor profile' }));
         throw new Error(error.error || 'Failed to update instructor profile');
       }
-      
+
       const instructor = await response.json();
       console.log('✅ Instructor profile updated successfully');
       return instructor;
-      
+
     } catch (error: any) {
       console.error('❌ Update instructor error:', error);
       throw error;
@@ -186,9 +192,9 @@ export const instructorsService = {
   getByUserId: async (userId: string) => {
     try {
       console.log('📡 Fetching instructor by user ID from Flask...');
-      
+
       const token = await getAuthToken();
-      
+
       const response = await fetch(`${API_URL}/api/instructors/by-user/${userId}`, {
         method: 'GET',
         headers: {
@@ -196,19 +202,60 @@ export const instructorsService = {
           ...(token && { 'Authorization': `Bearer ${token}` })
         }
       });
-      
+
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Failed to fetch instructor' }));
         console.log('ℹ️  Instructor not found for user:', userId);
         return null;
       }
-      
+
       const instructor = await response.json();
       return instructor;
-      
-    } catch (error: any) {
+
+    } catch (error) {
       console.error('❌ Get instructor by user ID error:', error);
       return null;
     }
   },
+
+  /**
+   * Find matching instructors using ML model
+   */
+  findMatches: async (profile: any) => {
+    try {
+      console.log('📡 Finding matches using ML model...');
+
+      const token = await getAuthToken();
+
+      const response = await fetch(`${API_URL}/api/matching/find-instructors`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(profile)
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to find matches' }));
+        throw new Error(error.error || 'Failed to find matches');
+      }
+
+      const data = await response.json();
+      console.log(`✅ Found ${data.matches?.length || 0} matches`);
+
+      // Map backend response to Instructor interface
+      // The backend returns 'instructor_id', but frontend expects 'id'
+      const mappedMatches = (data.matches || []).map((m: any) => ({
+        ...m,
+        id: m.instructor_id || m.id, // Ensure 'id' is present
+      }));
+
+      return mappedMatches;
+
+    } catch (error: any) {
+      console.error('❌ Find matches error:', error);
+      throw error;
+    }
+  }
 };

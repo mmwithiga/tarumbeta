@@ -172,8 +172,8 @@ function AppContent() {
       ...bookingData,
       instructor: {
         id: instructor.id,
-        name: instructor.users?.full_name || 'Unknown Instructor',
-        imageUrl: instructor.profile_image_url || instructor.users?.avatar_url || 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800',
+        name: instructor.instructor_name || instructor.users?.full_name || 'Unknown Instructor',
+        imageUrl: instructor.instructor_avatar || instructor.profile_image_url || instructor.users?.avatar_url || 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800',
         instrument: instructor.instrument,
         cost: instructor.hourly_rate,
       },
