@@ -2,60 +2,70 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+import random
 
+# Setup path
 sys.path.append('/content/tarumbeta-ml')
 from src.utils import config
 
-def generate_learners(n_samples=5000):
-    """
-    Synthesizes learners using the Distributions from the Domain Datasets.
-    """
-    # CRITICAL: Set seed for reproducibility
-    np.random.seed(config.RANDOM_SEED)
-
-    # MUST Match Instructor Taxonomy
-    real_locations = [
-        'Nairobi', 'Westlands, Nairobi', 'Kibera, Nairobi', 'Karen, Nairobi',
-        'Mombasa', 'Nyali, Mombasa',
-        'Kisumu', 'Milimani, Kisumu',
-        'Nakuru', 'Eldoret', 'Thika', 'Kiambu', 'Ruiru', 'Naivasha'
-    ]
-    # Weighted towards Nairobi (Urban center bias)
-    loc_probs = [0.3, 0.1, 0.1, 0.05, 0.1, 0.05, 0.05, 0.05, 0.05, 0.05, 0.02, 0.02, 0.02, 0.04]
-
-    instruments = ['Guitar', 'Piano', 'Drums', 'Violin', 'Saxophone', 'Voice', 'Flute', 'Cello']
-    inst_probs = [0.3, 0.3, 0.1, 0.1, 0.05, 0.1, 0.02, 0.03] # Piano/Guitar most popular
-
+def run_learner_generation():
+    print("👥 Generating Synthetic Learners...")
+    
+    # 1. Define The "Demand" Parameters
+    # These must overlap with Instructor "Supply" for matches to happen
+    cities = ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika']
+    instruments = ['Guitar', 'Piano', 'Drums', 'Violin', 'Saxophone', 'Flute', 'Cello', 'Voice']
     levels = ['Beginner', 'Intermediate', 'Advanced']
+    goals = ['Hobby', 'Exam Prep', 'Professional Performance', 'Band Practice', 'Just for Fun']
     
-    # Generate
-    df = pd.DataFrame({
-        'learner_id': [f'L{str(i).zfill(4)}' for i in range(n_samples)],
-        'location': np.random.choice(real_locations, p=loc_probs, size=n_samples),
-        'instrument_type': np.random.choice(instruments, p=inst_probs, size=n_samples),
-        'skill_level': np.random.choice(levels, p=[0.6, 0.3, 0.1], size=n_samples),
-        'teaching_language': np.random.choice(['English', 'Swahili', 'English & Swahili'], size=n_samples)
-    })
+    # 2. Load Genre Data (if available) for Semantic flavor
+    genre_path = os.path.join(config.DATA_RAW, 'music_genres.csv')
+    if os.path.exists(genre_path):
+        try:
+            genre_df = pd.read_csv(genre_path)
+            # Assuming the csv has a column like 'Genre' or similar. 
+            # If not, we fall back to a default list.
+            # We'll just grab any text column for variety or hardcode popular Kenyan genres
+            genres = ['Afro-fusion', 'Benga', 'Gospel', 'Reggae', 'Hip Hop', 'Jazz', 'Classical', 'Rock', 'Pop']
+        except:
+            genres = ['Jazz', 'Classical', 'Rock', 'Pop']
+    else:
+        genres = ['Afro-fusion', 'Benga', 'Gospel', 'Reggae', 'Hip Hop', 'Jazz', 'Classical', 'Rock', 'Pop']
 
-    # Generate Learning Goals from "Music Education Performance Data"
-    goals = ['Hobby', 'Exam Prep', 'Performance', 'Band Practice']
+    # 3. Generate 5,000 Learners
+    n_learners = 5000
+    data = []
     
-    def make_bio(row):
+    for i in range(n_learners):
+        inst = np.random.choice(instruments, p=[0.3, 0.3, 0.1, 0.1, 0.05, 0.05, 0.05, 0.05]) # Piano/Guitar popular
+        genre = np.random.choice(genres)
         goal = np.random.choice(goals)
-        # We make the learner bio "dense" so it matches the instructor bio embeddings
-        return f"Looking for {row['instrument_type']} lessons. My goal is {goal}. Current level: {row['skill_level']}."
-
-    df['bio_keywords'] = df.apply(make_bio, axis=1)
-    
-    # Fill numerical dummies (Critical for stacking vectors later)
-    # Learners don't have rates/ratings, so we set them to 0.
-    df['hourly_rate'] = 0
-    df['rating'] = 0
-    df['years_experience'] = 0
-
-    output_path = os.path.join(config.DATA_PROCESSED, 'learners_processed.csv')
-    df.to_csv(output_path, index=False)
-    print(f"✅ Synthesized {n_samples} Aligned Learners (Deterministic).")
+        
+        # Build a "Semantic Bio" that S-BERT can understand
+        # e.g., "I want to learn Jazz Piano for Professional Performance"
+        bio = f"I want to learn {genre} {inst} for {goal}. {random.choice(['Looking for a strict teacher.', 'I want to have fun.', 'Need to prepare for ABRSM exams.'])}"
+        
+        learner = {
+            'learner_id': f"L{str(i).zfill(4)}",
+            'location': np.random.choice(cities, p=[0.4, 0.2, 0.1, 0.1, 0.1, 0.1]), # Nairobi bias
+            'instrument_type': inst,
+            'skill_level': np.random.choice(levels, p=[0.6, 0.3, 0.1]), # Mostly beginners
+            'teaching_language': np.random.choice(['English', 'Swahili'], p=[0.7, 0.3]),
+            'bio_keywords': bio,
+            # Dummies for Numerical Fields (Learners don't have rates)
+            'hourly_rate': 0, 
+            'rating': 0,
+            'years_experience': 0 # Added to match instructor schema if needed, though mostly unused for query
+        }
+        data.append(learner)
+        
+    # 4. Save
+    df = pd.DataFrame(data)
+    out_path = os.path.join(config.DATA_PROCESSED, 'learners_processed.csv')
+    df.to_csv(out_path, index=False)
+    print(f"✅ Generated {len(df)} Learners at {out_path}")
+    print(f"   Sample Bio: {df.iloc[0]['bio_keywords']}")
 
 if __name__ == "__main__":
-    generate_learners()
+    np.random.seed(config.RANDOM_SEED)
+    run_learner_generation()

@@ -3,88 +3,91 @@ import numpy as np
 import pickle
 import os
 import sys
-from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
-from sklearn.preprocessing import normalize
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, normalize
 from sentence_transformers import SentenceTransformer
 
+# Setup path
 sys.path.append('/content/tarumbeta-ml')
 from src.utils import config
 
-def run_semantic_vectorization():
-    print("⚙️  Initializing Semantic Vectorization Pipeline...")
+def run_vectorization():
+    print("🧠 Starting Vectorization (Applying Brute Force Weights)...")
     
     # 1. Load Data
-    df_inst = pd.read_csv(os.path.join(config.DATA_PROCESSED, 'instructors_processed.csv'))
-    df_learn = pd.read_csv(os.path.join(config.DATA_PROCESSED, 'learners_processed.csv'))
+    inst_path = os.path.join(config.DATA_PROCESSED, 'instructors_processed.csv')
+    learn_path = os.path.join(config.DATA_PROCESSED, 'learners_processed.csv')
     
-    # Add a flag to track source after merge
+    df_inst = pd.read_csv(inst_path)
+    df_learn = pd.read_csv(learn_path)
+    
+    # Add flags to track them after merging
     df_inst['is_instructor'] = 1
     df_learn['is_instructor'] = 0
     
-    # Combine for consistent One-Hot Encoding
-    combined = pd.concat([df_inst, df_learn], axis=0, ignore_index=True).fillna('')
+    # Align Columns (Drop 'years_experience' if it exists in learners but not instructors)
+    common_cols = ['location', 'instrument_type', 'teaching_language', 'skill_level', 
+                   'hourly_rate', 'rating', 'bio_keywords', 'is_instructor']
     
-    # --- BLOCK 1: CATEGORICAL (The Heavy Hitters) ---
-    # Supervisor Rule: "Categorical features × ~0.55–0.60"
-    print(f"   🔹 Processing Categorical Features (Weight: {config.WEIGHT_CAT})...")
+    combined = pd.concat([df_inst[common_cols], df_learn[common_cols]], axis=0, ignore_index=True)
+    
+    # 2. Initialize Processors
+    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+    scaler = MinMaxScaler()
+    bert = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    # 3. Process Block A: CATEGORICAL (The Hard Constraints)
+    # Weight: 0.80
+    print(f"   🔹 Processing Categorical Block (Weight: {config.WEIGHT_CAT})...")
     cat_cols = ['location', 'instrument_type', 'teaching_language', 'skill_level']
     
-    encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+    # Fit on ALL data (so we know all cities/instruments)
     cat_matrix = encoder.fit_transform(combined[cat_cols])
     
-    # Critical: Normalize row-wise so one row doesn't overpower another, then apply weight
+    # Normalize Row-wise -> Multiply by Weight
     cat_matrix = normalize(cat_matrix, axis=1, norm='l2') * config.WEIGHT_CAT
-
-    # --- BLOCK 2: NUMERICAL (The Qualifiers) ---
-    # Supervisor Rule: "Numerical features × ~0.30"
-    print(f"   🔹 Processing Numerical Features (Weight: {config.WEIGHT_NUM})...")
-    num_cols = ['hourly_rate', 'rating', 'years_experience']
     
-    scaler = MinMaxScaler()
-    num_matrix = scaler.fit_transform(combined[num_cols])
+    # 4. Process Block B: NUMERICAL (The Tie-Breakers)
+    # Weight: 0.10
+    print(f"   🔹 Processing Numerical Block (Weight: {config.WEIGHT_NUM})...")
+    num_cols = ['hourly_rate', 'rating']
     
-    # Normalize & Weight
+    # Fit only on Instructors to set the scale (Learners are dummy 0s anyway)
+    scaler.fit(df_inst[num_cols])
+    num_matrix = scaler.transform(combined[num_cols])
+    
+    # Normalize Row-wise -> Multiply by Weight
     num_matrix = normalize(num_matrix, axis=1, norm='l2') * config.WEIGHT_NUM
-
-    # --- BLOCK 3: TEXT (The Semantic Context) ---
-    # Supervisor Rule: "No TF-IDF... replace with word vectors... Weight ~0.15"
-    print(f"   🔹 Processing Text Embeddings (Weight: {config.WEIGHT_TXT})...")
     
-    # Using 'all-MiniLM-L6-v2' (Fast & Powerful)
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    # 5. Process Block C: TEXT (The Semantic Flavor)
+    # Weight: 0.10
+    print(f"   🔹 Processing Text Block (Weight: {config.WEIGHT_TXT})...")
+    # This takes a few seconds
+    text_matrix = bert.encode(combined['bio_keywords'].tolist())
     
-    # Encode bios (This generates dense vectors, not sparse TF-IDF)
-    text_matrix = model.encode(combined['bio_keywords'].tolist())
-    
-    # Normalize & Weight
+    # Normalize Row-wise -> Multiply by Weight
     text_matrix = normalize(text_matrix, axis=1, norm='l2') * config.WEIGHT_TXT
-
-    # --- BLOCK 4: THE UNIFIED VECTOR (np.hstack) ---
-    # Supervisor Rule: "Single stacked + weighted vector"
-    print("   🔗 Concatenating Blocks (np.hstack)...")
-    final_vectors = np.hstack([cat_matrix, num_matrix, text_matrix])
     
-    print(f"   ✅ Final Vector Shape: {final_vectors.shape} (Rows, Dimensions)")
-
-    # Split back into Instructors and Learners
-    mask_inst = combined['is_instructor'] == 1
-    inst_vectors = final_vectors[mask_inst]
+    # 6. Stack & Split
+    print("   🔗 Stacking Vectors...")
+    final_vectors = np.hstack([cat_matrix, num_matrix, text_matrix]).astype('float32')
     
-    # --- SAVE ARTIFACTS ---
-    # We save to the new 'semantic_models' folder
+    # Extract just the Instructors to save as the "Database"
+    inst_vectors = final_vectors[combined['is_instructor'] == 1]
+    
+    # 7. Save Artifacts
+    # We save EVERYTHING needed to replicate this for a new user query
     os.makedirs(config.SEMANTIC_MODELS, exist_ok=True)
     
-    # Save the Processors (Needed for the API later)
     with open(os.path.join(config.SEMANTIC_MODELS, 'encoder.pkl'), 'wb') as f:
         pickle.dump(encoder, f)
+        
     with open(os.path.join(config.SEMANTIC_MODELS, 'scaler.pkl'), 'wb') as f:
         pickle.dump(scaler, f)
         
-    # Save the Vectors (The 'Database' for our recommender)
     with open(os.path.join(config.SEMANTIC_MODELS, 'instructors_vec.pkl'), 'wb') as f:
         pickle.dump(inst_vectors, f)
         
-    print(f"   💾 Artifacts saved to {config.SEMANTIC_MODELS}")
+    print(f"✅ Vectorization Complete. Saved {len(inst_vectors)} vectors to {config.SEMANTIC_MODELS}")
 
 if __name__ == "__main__":
-    run_semantic_vectorization()
+    run_vectorization()

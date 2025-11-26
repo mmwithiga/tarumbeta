@@ -2,82 +2,101 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+import random
 
-# Ensure we can find the config no matter where we run this
+# Setup path to import config
 sys.path.append('/content/tarumbeta-ml')
 from src.utils import config
 
-def load_simulation_data():
-    """
-    Simulates loading the 3 specific datasets identified in the Discovery Report.
-    """
-    # CRITICAL: Set the seed for reproducibility
-    np.random.seed(config.RANDOM_SEED)
+def extract_name_from_title(title):
+    """ Tries to extract a name from the course title, or generates a Kenyan placeholder. """
+    title = str(title)
+    if ' with ' in title:
+        return title.split(' with ')[-1].split(' - ')[0].split(' | ')[0].title()
+    # Fallback: Generate realistic Kenyan names if title doesn't have "with [Name]"
+    first = random.choice(['John','Mary','David','Sarah','Joseph','Grace','Peter','Ann','Michael','Jane','Paul','Esther'])
+    last  = random.choice(['Kamau','Ochieng','Wanjiku','Otieno','Achieng','Kiprop','Chebet','Mutai','Njoroge','Mwangi'])
+    return f"{first} {last}"
 
-    # 1. Base Structure: Upwork Freelancers
-    n_samples = 2000 
-    df_base = pd.DataFrame({
-        'instructor_id': [f'I{str(i).zfill(4)}' for i in range(n_samples)],
-        'name': [f'Instructor_{i}' for i in range(n_samples)],
-        'hourly_rate': np.random.lognormal(3, 0.5, n_samples).astype(int), 
-        'rating': np.random.beta(8, 2, n_samples), 
-        'years_experience': np.random.randint(1, 25, n_samples)
-    })
+def get_instrument(text):
+    """ Maps title text to the 8 Core Instruments. """
+    text = str(text).lower()
+    # Priority order matters (e.g. 'Bass Guitar' should hit 'Guitar' or 'Bass')
+    # We stick to your 8 core instruments
+    mapping = {
+        'guitar': 'Guitar', 'piano': 'Piano', 'drum': 'Drums', 
+        'violin': 'Violin', 'saxophone': 'Saxophone', 'flute': 'Flute', 
+        'cello': 'Cello', 'voice': 'Voice', 'singing': 'Voice', 'vocal': 'Voice'
+    }
+    for key, val in mapping.items():
+        if key in text:
+            return val
+    return 'Piano' # Default fallback if unclear
 
-    # 2. Context: Open Schools Kenya (Real Locations)
-    real_locations = [
-        'Nairobi', 'Westlands, Nairobi', 'Kibera, Nairobi', 'Karen, Nairobi',
-        'Mombasa', 'Nyali, Mombasa',
-        'Kisumu', 'Milimani, Kisumu',
-        'Nakuru', 'Eldoret', 'Thika', 'Kiambu', 'Ruiru', 'Naivasha'
-    ]
-    df_base['location'] = np.random.choice(real_locations, size=n_samples)
-
-    # 3. Domain: Music Taxonomy
-    instruments = ['Guitar', 'Piano', 'Drums', 'Violin', 'Saxophone', 'Voice', 'Flute', 'Cello']
-    df_base['instrument_type'] = np.random.choice(instruments, size=n_samples)
-
-    # 4. Skill Level (Required for "Hard Constraint" weighting)
-    levels = ['Beginner', 'Intermediate', 'Advanced']
-    df_base['skill_level'] = np.random.choice(levels, p=[0.1, 0.4, 0.5], size=n_samples)
-
-    return df_base
-
-def enrich_profiles(df):
-    """
-    Applies NLP generation to create rich bios for the Semantic Search.
-    """
-    np.random.seed(config.RANDOM_SEED) # Ensure text gen is also reproducible
+def run_instructor_etl():
+    print("⚙️  Starting Instructor ETL (Udemy Source)...")
     
-    genres = ['Classical', 'Jazz', 'Afro-fusion', 'Gospel', 'Pop', 'Rock', 'Reggae', 'Benga']
-    langs = ['English', 'Swahili', 'English & Swahili', 'English & Kikuyu']
+    # 1. Load Raw Data
+    raw_path = os.path.join(config.DATA_RAW, 'udemy_courses.csv')
+    if not os.path.exists(raw_path):
+        raise FileNotFoundError(f"❌ Missing {raw_path}. Did you upload it?")
+    
+    df = pd.read_csv(raw_path)
+    print(f"   Loaded {len(df)} raw courses.")
+    
+    # 2. Filter for Music
+    # The dataset has a 'subject' column. We only want 'Musical Instruments'
+    if 'subject' in df.columns:
+        df = df[df['subject'] == 'Musical Instruments'].copy()
+    print(f"   Filtered to {len(df)} music courses.")
 
-    df['teaching_language'] = np.random.choice(langs, p=[0.4, 0.2, 0.35, 0.05], size=len(df))
+    # 3. Feature Engineering
+    # A. Name & Instrument
+    df['name'] = df['course_title'].apply(extract_name_from_title)
+    df['instrument_type'] = df['course_title'].apply(get_instrument)
     
-    def generate_bio(row):
-        # We construct a sentence that is "Dense" with keywords for the embedding model
-        my_genres = np.random.choice(genres, size=2, replace=False)
-        return f"Professional {row['instrument_type']} teacher specializing in {my_genres[0]} and {my_genres[1]}. {row['years_experience']} years of teaching experience. fluent in {row['teaching_language']}."
-
-    df['bio_keywords'] = df.apply(generate_bio, axis=1)
+    # B. Kenyan Context (The Injection)
+    # We force these real courses to be located in Kenya for your platform demo
+    cities = ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika']
+    probs  = [0.5, 0.15, 0.10, 0.10, 0.10, 0.05] # Weighted to Nairobi
     
-    # Clip outliers for cleaner normalization later
-    df['hourly_rate'] = df['hourly_rate'].clip(5, 100) 
+    df['location'] = np.random.choice(cities, size=len(df), p=probs)
+    df['teaching_language'] = np.random.choice(['English', 'Swahili'], size=len(df), p=[0.85, 0.15])
     
-    return df
-
-def run_etl():
-    print("🚀 Starting Synthesis Pipeline (Upwork + Kenya + Music Data)...")
+    # C. Standardize Numericals
+    # Map Udemy 'price' -> hourly_rate
+    # Map Udemy 'level' -> skill_level
+    df['hourly_rate'] = df['price'].replace(0, 20) # Treat free courses as cheap lessons
+    df['skill_level'] = df['level'].map({
+        'All Levels': 'Intermediate', 
+        'Beginner Level': 'Beginner', 
+        'Intermediate Level': 'Intermediate', 
+        'Expert Level': 'Advanced'
+    }).fillna('Intermediate')
     
-    df_base = load_simulation_data()
-    df_processed = enrich_profiles(df_base)
+    # D. Rating Normalization (0-5 scale)
+    # Udemy has 'num_reviews'. We use this as a proxy for "Verified Rating"
+    # We normalize log-scale because reviews vary wildly
+    df['rating'] = np.log1p(df['num_reviews']) 
+    df['rating'] = (df['rating'] / df['rating'].max()) * 5.0 # Scale to 0-5
+    df['rating'] = df['rating'].round(1)
     
-    os.makedirs(config.DATA_PROCESSED, exist_ok=True)
-    output_path = os.path.join(config.DATA_PROCESSED, 'instructors_processed.csv')
-    df_processed.to_csv(output_path, index=False)
+    # E. The "Semantic" Field
+    # We use the Course Title as the 'Bio'. It contains rich keywords.
+    df['bio_keywords'] = df['course_title']
     
-    print(f"✅ Synthesized {len(df_processed)} Realistic Instructor Profiles (Deterministic).")
-    return df_processed
+    # 4. Final Cleanup
+    # Keep only the columns the model needs
+    cols = ['name', 'location', 'instrument_type', 'skill_level', 'teaching_language', 
+            'hourly_rate', 'rating', 'bio_keywords']
+    
+    final_df = df[cols].reset_index(drop=True)
+    
+    # 5. Save
+    out_path = os.path.join(config.DATA_PROCESSED, 'instructors_processed.csv')
+    final_df.to_csv(out_path, index=False)
+    print(f"✅ Saved {len(final_df)} Processed Instructors to {out_path}")
 
 if __name__ == "__main__":
-    run_etl()
+    np.random.seed(config.RANDOM_SEED)
+    run_instructor_etl()

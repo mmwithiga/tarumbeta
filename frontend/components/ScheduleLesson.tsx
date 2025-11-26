@@ -82,7 +82,7 @@ export function ScheduleLesson({ instructor, rentalId, onBack, onSuccess }: Sche
           learner_id: user.id,
           instructor_id: instructor.id,
           rental_id: rentalId || null,
-          instrument: instructor.instrument,
+          instrument: `${instructor.instrument || 'Music Lesson'}::${instructor.name}`, // Hack: Store synthetic name in instrument field
           skill_level: null, // Can be added later
           session_type: 'online', // Default to online, can be made selectable
           scheduled_time: scheduledTimestamp,

@@ -72,6 +72,11 @@ def get_my_lessons():
             '*, instructor_profiles(*, users!instructor_profiles_user_id_fkey(full_name, email, avatar_url))'
         ).eq('learner_id', user_id).order('scheduled_time', desc=True).execute()
         
+        # Enrich learner lessons with synthetic names
+        learner_data = []
+        if learner_lessons.data:
+            learner_data = [enrich_lesson_with_synthetic_name(l) for l in learner_lessons.data]
+        
         # Get instructor profile for this user
         instructor_profile = supabase.table('instructor_profiles').select('id').eq('user_id', user_id).execute()
         
@@ -82,10 +87,13 @@ def get_my_lessons():
             instructor_lessons = supabase.table('lessons').select(
                 '*, users!lessons_learner_id_fkey(full_name, email, avatar_url)'
             ).eq('instructor_id', instructor_id).order('scheduled_time', desc=True).execute()
-            instructor_lessons_data = instructor_lessons.data
+            
+            # Also enrich instructor lessons (though less critical as they see the learner)
+            if instructor_lessons.data:
+                instructor_lessons_data = [enrich_lesson_with_synthetic_name(l) for l in instructor_lessons.data]
         
         return jsonify({
-            'as_learner': learner_lessons.data,
+            'as_learner': learner_data,
             'as_instructor': instructor_lessons_data
         }), 200
         
@@ -113,11 +121,43 @@ def get_lesson(lesson_id):
         if response.data['learner_id'] != user_id and response.data['instructor_profiles']['user_id'] != user_id:
             return jsonify({'error': 'Unauthorized'}), 403
         
-        return jsonify(response.data), 200
+        # Enrich with synthetic name
+        lesson = enrich_lesson_with_synthetic_name(response.data)
+        
+        return jsonify(lesson), 200
         
     except Exception as e:
         print(f"Get lesson error: {str(e)}")
         return jsonify({'error': 'Lesson not found'}), 404
+
+def enrich_lesson_with_synthetic_name(lesson):
+    """
+    Helper to extract synthetic instructor name from instrument field
+    Format: "Instrument::SyntheticName"
+    """
+    if not lesson:
+        return lesson
+        
+    instrument_field = lesson.get('instrument', '')
+    if instrument_field and '::' in instrument_field:
+        parts = instrument_field.split('::')
+        real_instrument = parts[0]
+        synthetic_name = parts[1]
+        
+        # Update instrument to be clean
+        lesson['instrument'] = real_instrument
+        
+        # Override instructor name if present
+        if 'instructor_profiles' in lesson and lesson['instructor_profiles']:
+            # Handle list or dict
+            if isinstance(lesson['instructor_profiles'], list):
+                for ip in lesson['instructor_profiles']:
+                    if 'users' in ip:
+                        ip['users']['full_name'] = synthetic_name
+            elif 'users' in lesson['instructor_profiles']:
+                lesson['instructor_profiles']['users']['full_name'] = synthetic_name
+                
+    return lesson
 
 @bp.route('/<lesson_id>/cancel', methods=['PUT'])
 @require_auth

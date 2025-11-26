@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ScheduleLesson } from './ScheduleLesson';
+import { lessonsService } from '../services/lessonsService';
 
 interface MyMatchesProps {
     onNavigate: (view: View) => void;
@@ -73,44 +74,9 @@ export function MyMatches({ onNavigate }: MyMatchesProps) {
         console.log('🔍 MyMatches: Starting to load matches for user:', userProfile?.id);
         try {
             // Query 1: Get instructors from lessons (like LearnerDashboard does)
-            console.log('📚 MyMatches: Querying lessons table...');
-            const { data: lessonsData, error: lessonsError } = await supabase
-                .from('lessons')
-                .select(`
-          id,
-          instructor_id,
-          instrument,
-          skill_level,
-          scheduled_time,
-          status,
-          price,
-          instructor_profiles!inner (
-            id,
-            instrument,
-            skill_level,
-            experience_years,
-            hourly_rate,
-            is_verified,
-            profile_image_url,
-            genre,
-            bio,
-            rating,
-            total_reviews,
-            total_students,
-            users:user_id (
-              full_name,
-              email,
-              avatar_url
-            )
-          )
-        `)
-                .eq('learner_id', userProfile?.id)
-                .order('scheduled_time', { ascending: false });
-
-            if (lessonsError) {
-                console.error('❌ MyMatches: Lessons query error:', lessonsError);
-                throw lessonsError;
-            }
+            // Query 1: Get instructors from lessons (using service for enriched data)
+            console.log('📚 MyMatches: Querying lessons via service...');
+            const lessonsData = await lessonsService.getLearnerLessons(userProfile?.id || '');
             console.log('✅ MyMatches: Lessons data:', lessonsData);
 
             // Query 2: Get instructors from instructor_matches
@@ -132,6 +98,20 @@ export function MyMatches({ onNavigate }: MyMatchesProps) {
             }
             console.log('✅ MyMatches: Matches data:', matchesData);
 
+            // Create a lookup for synthetic info from matches
+            const syntheticInfoMap = new Map<string, { name: string, avatar: string | null }>();
+
+            if (matchesData && matchesData.length > 0) {
+                matchesData.forEach((match: any) => {
+                    if (match.bio && match.bio.startsWith('SYNTHETIC_NAME:')) {
+                        const parts = match.bio.split('::AVATAR:');
+                        const syntheticName = parts[0].replace('SYNTHETIC_NAME:', '');
+                        const syntheticAvatar = parts.length > 1 ? parts[1] : null;
+                        syntheticInfoMap.set(match.instructor_id, { name: syntheticName, avatar: syntheticAvatar });
+                    }
+                });
+            }
+
             // Combine and deduplicate instructors
             const instructorMap = new Map<string, InstructorMatch>();
 
@@ -146,6 +126,7 @@ export function MyMatches({ onNavigate }: MyMatchesProps) {
                     }
 
                     const instructorId = lesson.instructor_id;
+                    const syntheticInfo = syntheticInfoMap.get(instructorId);
 
                     // If instructor already exists, update status if lesson is more recent
                     if (!instructorMap.has(instructorId)) {
@@ -167,15 +148,15 @@ export function MyMatches({ onNavigate }: MyMatchesProps) {
                                 total_reviews: profile.total_reviews || 0,
                                 total_students: profile.total_students || 0,
                                 is_verified: profile.is_verified || false,
-                                profile_image_url: profile.profile_image_url || '',
+                                profile_image_url: syntheticInfo?.avatar || profile.profile_image_url || '',
                                 users: {
-                                    full_name: profile.users?.full_name || 'Unknown',
+                                    full_name: syntheticInfo?.name || profile.users?.full_name || 'Unknown',
                                     email: profile.users?.email || '',
-                                    avatar_url: profile.users?.avatar_url || '',
+                                    avatar_url: syntheticInfo?.avatar || profile.users?.avatar_url || '',
                                 },
                             },
                         });
-                        console.log(`✅ MyMatches: Added instructor from lesson:`, profile.users?.full_name);
+                        console.log(`✅ MyMatches: Added instructor from lesson:`, syntheticInfo?.name || profile.users?.full_name);
                     }
                 });
             } else {
@@ -187,8 +168,24 @@ export function MyMatches({ onNavigate }: MyMatchesProps) {
                 console.log(`📝 MyMatches: Processing ${matchesData.length} matches...`);
                 matchesData.forEach((match: any) => {
                     if (!instructorMap.has(match.instructor_id)) {
-                        instructorMap.set(match.instructor_id, match);
-                        console.log(`✅ MyMatches: Added instructor from matches:`, match.instructor_profiles?.users?.full_name);
+                        // Create a copy of the match to modify the name
+                        const enrichedMatch = { ...match };
+                        const syntheticInfo = syntheticInfoMap.get(match.instructor_id);
+
+                        if (syntheticInfo) {
+                            enrichedMatch.instructor_profiles = {
+                                ...enrichedMatch.instructor_profiles,
+                                profile_image_url: syntheticInfo.avatar || enrichedMatch.instructor_profiles.profile_image_url,
+                                users: {
+                                    ...enrichedMatch.instructor_profiles.users,
+                                    full_name: syntheticInfo.name,
+                                    avatar_url: syntheticInfo.avatar || enrichedMatch.instructor_profiles.users.avatar_url
+                                }
+                            };
+                        }
+
+                        instructorMap.set(match.instructor_id, enrichedMatch);
+                        console.log(`✅ MyMatches: Added instructor from matches:`, enrichedMatch.instructor_profiles?.users?.full_name);
                     }
                 });
             } else {

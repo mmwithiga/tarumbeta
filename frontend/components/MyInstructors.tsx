@@ -6,6 +6,7 @@ import { Skeleton } from "./ui/skeleton";
 import { Star, MessageSquare, Calendar, Award, CheckCircle, Clock } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { reviewsService } from "../services/reviewsService";
+import { lessonsService } from "../services/lessonsService";
 import { ReviewModal } from "./ReviewModal";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -49,34 +50,8 @@ export function MyInstructors() {
       }
       setCurrentUserId(user.id);
 
-      // Get all lessons for this learner
-      const { data: lessonsData, error: lessonsError } = await supabase
-        .from('lessons')
-        .select(`
-          id,
-          instructor_id,
-          instrument,
-          skill_level,
-          scheduled_time,
-          status,
-          instructor_profiles!inner (
-            id,
-            instrument,
-            skill_level,
-            experience_years,
-            hourly_rate,
-            is_verified,
-            profile_image_url,
-            users:user_id (
-              full_name,
-              avatar_url
-            )
-          )
-        `)
-        .eq('learner_id', user.id)
-        .order('scheduled_time', { ascending: false });
-
-      if (lessonsError) throw lessonsError;
+      // Get all lessons for this learner using the service (returns enriched data)
+      const lessonsData = await lessonsService.getLearnerLessons(user.id);
 
       if (!lessonsData || lessonsData.length === 0) {
         setLessons([]);
@@ -88,7 +63,7 @@ export function MyInstructors() {
       const lessonsWithReviewCounts = await Promise.all(
         lessonsData.map(async (lesson) => {
           const profile = lesson.instructor_profiles as any;
-          
+
           // Count how many reviews user has written for this instructor
           const userReviews = await reviewsService.getUserReviewsForTarget(
             user.id,
@@ -236,7 +211,7 @@ export function MyInstructors() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    <Badge 
+                    <Badge
                       variant={lesson.status === "approved" ? "default" : lesson.status === "completed" ? "secondary" : "outline"}
                     >
                       {lesson.status}

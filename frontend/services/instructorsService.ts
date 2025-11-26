@@ -35,6 +35,7 @@ export interface Instructor {
   match_score?: number;
   match_reasons?: string[];
   recommendation_strength?: string;
+  languages?: string[];
 }
 
 export const instructorsService = {

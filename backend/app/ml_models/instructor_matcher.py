@@ -17,100 +17,85 @@ class InstructorMatcher:
     def __init__(self):
         """
         Initialize the model
-        Load your trained model here
+        Load the new SemanticRecommender
         """
-        model_path = os.getenv('MODEL_PATH', 'app/ml_models/trained_model.pkl')
-        
         try:
-            # Load your trained model
-            with open(model_path, 'rb') as f:
-                self.model = pickle.load(f)
-            print(f"✅ ML Model loaded from {model_path}")
-        except FileNotFoundError:
-            print(f"⚠️  Warning: ML model not found at {model_path}")
-            print("    Using rule-based matching instead")
-            self.model = None
+            try:
+                from app.tarumbeta_ml.src.api.inference_semantic import recommender
+            except ImportError:
+                from backend.app.tarumbeta_ml.src.api.inference_semantic import recommender
+            
+            self.model = recommender
+            print(f"✅ Semantic ML Model loaded successfully")
         except Exception as e:
-            print(f"⚠️  Warning: Error loading ML model: {str(e)}")
+            print(f"⚠️  Warning: Error loading Semantic ML model: {str(e)}")
             print("    Using rule-based matching instead")
             self.model = None
     
     def predict_matches(self, learner_profile: Dict[str, Any], instructors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Predict best instructor matches for a learner
-        
-        Args:
-            learner_profile: Dictionary containing learner information
-                {
-                    'instrument_type': str,
-                    'experience_level': str (beginner/intermediate/advanced),
-                    'learning_goals': List[str],
-                    'budget': float,
-                    'location': str,
-                    'location_coords': {'lat': float, 'lng': float},
-                    'preferred_schedule': {'days': List[str], 'times': List[str]},
-                    'learning_style': str (flexible/structured/intensive),
-                    'lesson_format': str (in-person/online/hybrid)
-                }
-            
-            instructors: List of instructor dictionaries from database
-        
-        Returns:
-            List of matches sorted by score (highest first)
-            [
-                {
-                    'instructor_id': str,
-                    'instructor_name': str,
-                    'match_score': float (0.0-1.0),
-                    'match_reasons': List[str],
-                    'recommendation_strength': str
-                },
-                ...
-            ]
         """
-        
         if self.model:
-            # Use your trained ML model
             return self._ml_prediction(learner_profile, instructors)
         else:
-            # Fallback to rule-based matching
             return self._rule_based_matching(learner_profile, instructors)
     
     def _ml_prediction(self, learner_profile: Dict[str, Any], instructors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Use trained ML model for prediction
-        
-        REPLACE THIS WITH YOUR MODEL'S PREDICTION LOGIC
+        Use SemanticRecommender for prediction
         """
+        # 1. Map learner profile to model input format
+        model_input = {
+            'location': learner_profile.get('location', ''),
+            'instrument_type': learner_profile.get('instrument_type', ''),
+            'skill_level': learner_profile.get('experience_level', 'Beginner').title(),
+            'teaching_language': 'English', # Default
+            'bio_keywords': " ".join(learner_profile.get('learning_goals', [])) + " " + learner_profile.get('learning_style', '')
+        }
+        
+        # 2. Get recommendations from the model
+        # We request more candidates (top_k=50) to maximize overlap with the provided instructors list
+        try:
+            recommendations = self.model.recommend(model_input, top_k=50)
+        except Exception as e:
+            print(f"Error during ML inference: {e}")
+            return self._rule_based_matching(learner_profile, instructors)
+            
         matches = []
         
-        for instructor in instructors:
-            # 1. Extract features for your model
-            features = self._extract_features(learner_profile, instructor)
-            
-            # 2. Make prediction with your model
-            # Example: score = self.model.predict_proba([features])[0][1]
-            # For now, using placeholder calculation
-            score = self._calculate_compatibility_score(learner_profile, instructor)
-            
-            # 3. Generate explanation
-            reasons = self._generate_match_reasons(learner_profile, instructor, score)
-            
-            # 4. Add to matches
-            matches.append({
-                'instructor_id': instructor['id'],
-                'instructor_name': instructor['users']['full_name'],
-                'instructor_email': instructor['users']['email'],
-                'instructor_avatar': instructor['users'].get('avatar_url'),
-                'hourly_rate': instructor['hourly_rate'],
-                'years_experience': instructor['years_experience'],
-                'rating': instructor['rating'],
-                'bio': instructor['bio'],
-                'match_score': round(score, 2),
-                'match_reasons': reasons,
-                'recommendation_strength': self._get_recommendation_strength(score)
-            })
+        # 3. Match model results with database instructors
+        # Create a map for fast lookup. Keying by name as a fallback since model doesn't return DB IDs.
+        # Ideally, we should ensure the model index has DB IDs.
+        instructor_map = {inst['users']['full_name']: inst for inst in instructors if inst.get('users', {}).get('full_name')}
         
+        for rec in recommendations:
+            name = rec['name']
+            if name in instructor_map:
+                inst = instructor_map[name]
+                score = rec['match_score']
+                
+                # Generate reasons
+                reasons = self._generate_match_reasons(learner_profile, inst, score)
+                
+                matches.append({
+                    'instructor_id': inst['id'],
+                    'instructor_name': inst['users']['full_name'],
+                    'instructor_email': inst['users']['email'],
+                    'instructor_avatar': inst['users'].get('avatar_url'),
+                    'hourly_rate': inst['hourly_rate'],
+                    'years_experience': inst['years_experience'],
+                    'rating': inst['rating'],
+                    'bio': inst['bio'],
+                    'match_score': round(score, 2),
+                    'match_reasons': reasons,
+                    'recommendation_strength': self._get_recommendation_strength(score)
+                })
+        
+        # If no matches found in the intersection, fallback to rule based
+        if not matches:
+            return self._rule_based_matching(learner_profile, instructors)
+            
         # Sort by score (descending)
         matches.sort(key=lambda x: x['match_score'], reverse=True)
         

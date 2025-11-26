@@ -96,7 +96,8 @@ export function MatchingDashboard({
           filters.genre !== "all" ? filters.genre : ""
         ].filter(Boolean).join(" "),
         budget: 2000, // Default budget if not specified
-        location: filters.location === "all" || !filters.location ? "Nairobi" : filters.location // Default to Nairobi if not selected
+        location: filters.location === "all" || !filters.location ? "Nairobi" : filters.location, // Default to Nairobi if not selected
+        genre: filters.genre === "all" ? "" : filters.genre // Add genre for strict matching
       };
 
       console.log("🚀 Sending profile to ML model:", profile);
@@ -185,8 +186,6 @@ export function MatchingDashboard({
                       <SelectItem value="Drums">Drums</SelectItem>
                       <SelectItem value="Saxophone">Saxophone</SelectItem>
                       <SelectItem value="Violin">Violin</SelectItem>
-                      <SelectItem value="Bass">Bass Guitar</SelectItem>
-                      <SelectItem value="Vocals">Vocals</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -223,8 +222,6 @@ export function MatchingDashboard({
                       <SelectItem value="all">All Languages</SelectItem>
                       <SelectItem value="English">English</SelectItem>
                       <SelectItem value="Swahili">Swahili</SelectItem>
-                      <SelectItem value="French">French</SelectItem>
-                      <SelectItem value="Spanish">Spanish</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -396,15 +393,15 @@ export function MatchingDashboard({
 
                 {/* Grid layout for 2 instructors per row */}
                 <div className="grid md:grid-cols-2 gap-6">
-                  {instructors.map((instructor) => (
+                  {instructors.map((instructor, index) => (
                     <InstructorCardNew
-                      key={instructor.id}
+                      key={`${instructor.id}-${index}`}
                       id={instructor.id}
                       name={instructor.instructor_name || instructor.users?.full_name || "Unknown Instructor"}
                       imageUrl={instructor.instructor_avatar || instructor.profile_image_url || instructor.users?.avatar_url || ""}
                       instrument={instructor.instrument}
                       yearsExperience={instructor.experience_years}
-                      languages={["English", "Swahili"]} // Default for now
+                      languages={instructor.languages || ["English", "Swahili"]} // Use dynamic languages
                       hourlyRate={instructor.hourly_rate}
                       matchScore={instructor.match_score || Math.min(95, 70 + (instructor.rating * 5) + (instructor.experience_years * 0.5))}
                       genres={

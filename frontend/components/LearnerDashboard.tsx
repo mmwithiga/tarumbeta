@@ -1,4 +1,5 @@
 import { rentalsService } from '../services/rentalsService';
+import { lessonsService } from '../services/lessonsService';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import type { View } from '../types';
@@ -131,30 +132,13 @@ export function LearnerDashboard({ onNavigate }: LearnerDashboardProps) {
 
   const loadLessons = async () => {
     try {
-      const { data, error } = await supabase
-        .from('lessons')
-        .select(`
-          *,
-          instructor_profiles:instructor_id (
-            user_id,
-            bio,
-            experience_years,
-            rating,
-            users:user_id (
-              full_name,
-              email
-            )
-          )
-        `)
-        .eq('learner_id', userProfile?.id)
-        .order('scheduled_time', { ascending: false });
-
-      if (error) throw error;
-
-      setLessons(data || []);
-      calculateLessonStats(data || []);
+      // Use service to get enriched data (with synthetic names)
+      const lessonsData = await lessonsService.getLearnerLessons(userProfile?.id || '');
+      setLessons(lessonsData || []);
+      calculateLessonStats(lessonsData || []);
     } catch (error) {
       console.error('Error loading lessons:', error);
+      toast.error('Failed to load lessons');
     }
   };
 
