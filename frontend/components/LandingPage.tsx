@@ -27,10 +27,10 @@ export function LandingPage({ onNavigate, onRent }: LandingPageProps) {
       setError(null);
       console.log("🔄 Loading featured instruments...");
 
-      const result = await instrumentsService.getAll({ page: 1, page_size: 4 });
+      const result = await instrumentsService.getAll({ page: 1, page_size: 5 });
 
       console.log("✅ Loaded instruments:", result.instruments.length);
-      setFeaturedInstruments(result.instruments.slice(0, 4));
+      setFeaturedInstruments(result.instruments.slice(0, 5));
     } catch (error: any) {
       console.error("❌ Error loading featured instruments:", error);
       setError(error?.message || 'Failed to load instruments');
