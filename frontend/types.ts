@@ -1,0 +1,18 @@
+export type View =
+    | "landing"
+    | "browse"
+    | "list"
+    | "dashboard"
+    | "checkout"
+    | "confirmation"
+    | "signin"
+    | "signup"
+    | "become-instructor"
+    | "my-rentals"
+    | "my-matches"
+    | "instructor-dashboard"
+    | "admin-dashboard"
+    | "learner-dashboard"
+    | "owner-dashboard"
+    | "profile-settings"
+    | "schedule-lesson";
